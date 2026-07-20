@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "octopus": {
+      "type": "http",
+      "url": "https://mcp-server-domz34jjcq-uc.a.run.app/mcp"
+    }
+  }
+}
