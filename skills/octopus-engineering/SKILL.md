@@ -64,6 +64,8 @@ From the persisted spec (whether it resolved via `PASSES` or an explicit user ov
 
 Decompose the design into isolated tasks, each with explicit acceptance criteria. Describe the tasks in dependency order — a task that depends on another must be described (and saved) after the task it depends on, since `save_artifact` returns each task's `id` and a dependent task needs to reference it.
 
+Scope each task's acceptance criteria to the minimum implementation that satisfies the spec — no speculative abstractions, no unrequested configurability, no gold-plating beyond what's actually asked. This never trims anything the spec calls for around trust-boundary validation, data-loss handling, security, or accessibility — that work stays in scope regardless of how minimal the rest of the task is.
+
 For each task, call `mcp__octopus__save_artifact` with `type="task"`, `parent_id` set to the design artifact's `id`, and `metadata={"task_kind": "feature", "acceptance_criteria": [...], "depends_on": [...]}` — `acceptance_criteria` lists that task's criteria; `depends_on` lists the `id`s of other tasks (from this same design) that must be done first, or `[]` if this task has no dependencies. `task_kind` is always `"feature"` for tasks created here — this is net-new work by definition; `octopus-refine` is what later creates `bug`/`tech_debt`/`security` tasks against this same design.
 
 ### Step 6: Save new learnings
