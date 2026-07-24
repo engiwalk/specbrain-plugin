@@ -25,6 +25,12 @@ Capture and deepen understanding of a new demand before any engineering work sta
 
 Run `pwd` to get the current project path. Call `mcp__octopus__get_or_create_project` with that path as `project_path`. This is idempotent — safe to call every time, at the start of every step that needs it.
 
+Then call `mcp__octopus__list_artifacts` with `type="inquiry"`, `status="pending"`. These are questions raised in a previous run of this skill that couldn't be answered at the time (see Step 7) — they are never lost, only carried forward until resolved. If any exist, list them for the user (the question, which demand's context they belong to, and whether they were flagged as blocking) and ask if any now have an answer.
+
+For each one the user answers now: call `mcp__octopus__save_artifact` with `type="context"`, `parent_id` = that inquiry's own `parent_id` (the original context artifact), and `content` describing the incremental update — this is how a demand's context "stays current" without an update-in-place tool, the same pattern `octopus-discovery-slack` uses when a Slack reply lands. Then call `mcp__octopus__update_artifact_status` on the inquiry with `status="answered"`. Evaluate the answer against the same reusable-learning criteria as Step 9 below — if it's a durable business rule, `save_learning` it now rather than waiting.
+
+If none are answered yet, just proceed to the rest of this skill as normal — an unanswered pending inquiry never blocks starting a new demand, only `octopus-engineering` enforces that (see that skill's Step 1).
+
 ### Step 2: Search before asking
 
 **Before asking the user anything**, call:
@@ -54,6 +60,8 @@ Following the same discipline as `superpowers:brainstorming`: ask ONE question p
 
 Do not move to Step 5 until you're confident you understand the demand — clarity is built WITH the user, not assumed.
 
+If the user can't answer something now (needs to check with someone, a decision hasn't been made yet, etc.), don't stall trying to force an answer out of the conversation — note the question in-session (it can't be persisted yet; it needs the context artifact's id from Step 6) and ask one follow-up: does this block the demand from moving forward, or can discovery finish and this get resolved later? Carry that `blocking` flag forward to Step 7. Keep asking about everything else the demand still needs clarified — one open question doesn't stall the rest of this step.
+
 ### Step 5: Flag UI involvement, if any
 
 If the demand involves UI, note this explicitly for the context artifact's `metadata`: `{"requires_ui_design": true}`. This flag is what `octopus-design` checks to decide whether it applies to this demand.
@@ -66,14 +74,26 @@ Call `mcp__octopus__save_artifact` with:
 - `content`: a clear, complete written summary of the demand, incorporating everything learned in Steps 2-5
 - `metadata`: `{"requires_ui_design": true}` or `{"requires_ui_design": false}`
 
-### Step 7: Offer an active interview via Slack
+### Step 7: Persist any open questions
+
+For each question captured in Step 4 that's still unanswered, call `mcp__octopus__save_artifact` with:
+- `project_path`: from Step 1
+- `type`: `"inquiry"`
+- `status`: `"pending"`
+- `content`: the question itself, written self-contained (someone reading it later, out of context, must understand what's being asked)
+- `parent_id`: the context artifact's id (from Step 6)
+- `metadata`: `{"blocking": true}` or `{"blocking": false}`, per what the user decided in Step 4
+
+If nothing was left unanswered, skip this step.
+
+### Step 8: Offer an active interview via Slack
 
 Ask one more question: besides what's already been searched, is there something only a specific person knows that's worth asking directly? This runs after Step 6 (not before) because it needs the just-saved context artifact's id to link to.
 
-- If no, continue to Step 8.
+- If no, continue to Step 9.
 - If yes, invoke the `octopus-discovery-slack` skill (Mode A) with the topic, target person/channel, the question, and `parent_id` = the context artifact saved in Step 6. That skill handles composing, approval, sending, and tracking the reply — it does not block here: it sends (or gets approval to send), persists a `pending` inquiry, schedules a re-check, and returns. Tell the user an inquiry is open and that the demand's context will be updated automatically once a reply lands (or when they check manually) — do not wait for a reply before continuing.
 
-### Step 8: Save any newly learned business rules
+### Step 9: Save any newly learned business rules
 
 Review the conversation for anything learned about the client's business that would be useful to know automatically next time — a business rule, a domain constraint, a naming convention, anything non-obvious. For each one, call `mcp__octopus__save_learning` with:
 - `project_path`: from Step 1
@@ -83,17 +103,20 @@ Review the conversation for anything learned about the client's business that wo
 
 If nothing new was learned (the demand only used already-known context), skip this step — don't force a learning that isn't one.
 
-### Step 9: Hand off
+### Step 10: Hand off
 
-Tell the user the context has been saved and what's next: if `requires_ui_design` is `true`, `octopus-design` should run first to produce a `ui_design` artifact; otherwise, `octopus-engineering` is the next skill to invoke directly to turn this into a spec, design, and tasks.
+Tell the user the context has been saved and what's next: if `requires_ui_design` is `true`, `octopus-design` should run first to produce a `ui_design` artifact; otherwise, `octopus-engineering` is the next skill to invoke directly to turn this into a spec, design, and tasks. If any inquiry was persisted in Step 7 with `blocking: true`, say so explicitly: `octopus-engineering` will refuse to proceed on this demand until it's resolved or explicitly overridden.
 
 ## Checklist
 
 - [ ] Resolved the project via `get_or_create_project`
+- [ ] Checked for pending `inquiry` artifacts from a previous run, and folded in any answers the user now has
 - [ ] Searched `search_context` and `search_learnings` before asking anything
 - [ ] Offered Slack as an additional source, and if accepted, only searched the scope the user named
-- [ ] Asked clarifying questions one at a time until confident
+- [ ] Asked clarifying questions one at a time until confident; for anything left unanswered, decided with the user whether it's blocking
 - [ ] Flagged whether the demand needs UI design
 - [ ] Saved the context via `save_artifact`
+- [ ] Persisted any open questions as `inquiry` artifacts, with the right `blocking` flag
 - [ ] Asked whether a specific person should be interviewed directly (after the context was saved), and handed off to `octopus-discovery-slack` if so
 - [ ] Saved any new learnings via `save_learning` (or explicitly confirmed there were none)
+- [ ] Told the user, at hand-off, if any blocking inquiry remains open

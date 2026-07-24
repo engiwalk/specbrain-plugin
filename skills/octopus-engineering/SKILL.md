@@ -23,6 +23,12 @@ Run `pwd` to get the current project path. Call `mcp__octopus__get_or_create_pro
 
 Also call `mcp__octopus__list_artifacts` with `type="ui_design"`. If a UI design artifact exists for this project, it's additional input for Step 2. If none exists, proceed without it — not every demand involves UI, and `octopus-design` may simply not have been run.
 
+Then call `mcp__octopus__list_artifacts` with `type="inquiry"`, `status="pending"`, and keep only the ones whose `parent_id` matches the context artifact found above — these are open questions `octopus-discovery` raised for this exact demand. If any have `metadata.blocking == true`: stop here, before drafting anything, and list them for the user. Offer two outcomes:
+1. **Answer now** — fold the answer into a new `context` artifact revision (`save_artifact`, `type="context"`, `parent_id` = the original context artifact, `content` describing the incremental update), mark the inquiry `answered` via `update_artifact_status`, and evaluate it against the same reusable-learning criteria `octopus-discovery` Step 9 uses (`save_learning` if it's a durable rule). Then continue with this step.
+2. **Explicit override** — proceed to Step 2 despite the open blocker. The inquiry stays `pending`.
+
+Pending inquiries without `blocking: true` never stop this step — just note them to the user as still open, and continue.
+
 ### Step 2: Draft the spec
 
 Write a technical specification covering: what will be built, the approach, explicit scope boundaries (what's out of scope), and acceptance criteria — in English, per the content-language policy above. If a `ui_design` artifact was found in Step 1, incorporate its component/layout/state decisions into the spec directly — don't re-derive or ignore them.
@@ -82,6 +88,7 @@ Always runs, regardless of how the gate resolved.
 ## Checklist
 
 - [ ] Resolved the project and found the parent context artifact
+- [ ] Checked for open blocking `inquiry` artifacts tied to that context, and either resolved or got an explicit override before proceeding
 - [ ] Drafted the spec in English, in-session, without saving it yet
 - [ ] Ran the adversarial gate as a background gate runner (prioritized criteria, no periodic check-ins), resolved to PASSES, explicit user override, or a deliberate decline after the 15-attempt safety ceiling
 - [ ] Persisted exactly one `spec` artifact for this demand, regardless of how many gate attempts/batches it took
