@@ -42,7 +42,7 @@ This is the key judgment call — don't default to either answer:
 
 ### Step 6: Record a homologação miss, if applicable
 
-If the design was `in_review` or `finished` before Step 2 (i.e., it had already been through review once) **and** `task_kind` is `bug`: call `mcp__octopus__record_indicator` with `key="homologacao_miss"`, `value={"design_id": "<id>"}`, `source="refine"`. This is what it literally means for something to have passed review and turned out not to be fine. Skip this for `tech_debt`/`security` — an improvement or a newly-surfaced hardening need isn't a miss, it's new information.
+If the design was `in_review` or `finished` before Step 2 (i.e., it had already been through review once) **and** `task_kind` is `bug`: call `mcp__octopus__record_indicator` with `key="homologacao_miss"`, `value={"design_id": "<id>", "note": "<a short, human-readable one-sentence description of what was missed>"}`, `source="refine"`. `note` is drawn from Step 3's investigation of what was actually wrong — already gathered by this point, not a new investigation step. This is what it literally means for something to have passed review and turned out not to be fine. Skip this for `tech_debt`/`security` — an improvement or a newly-surfaced hardening need isn't a miss, it's new information.
 
 ### Step 7: Create new tasks
 
