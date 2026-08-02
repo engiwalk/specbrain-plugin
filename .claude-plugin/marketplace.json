@@ -1,11 +1,11 @@
 {
-  "name": "octopus-engineer-marketplace",
+  "name": "specbrain-marketplace",
   "owner": {
     "name": "Engiwalk"
   },
   "plugins": [
     {
-      "name": "octopus-engineer",
+      "name": "specbrain",
       "source": ".",
       "description": "AI-driven engineering pipeline (discovery, spec, design, parallel execution, QA, retrospective) backed by shared organizational memory.",
       "version": "1.0.1"
