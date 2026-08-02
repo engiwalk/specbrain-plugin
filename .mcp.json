@@ -2,7 +2,7 @@
   "mcpServers": {
     "specbrain": {
       "type": "http",
-      "url": "https://mcp-server-106809354092.us-central1.run.app/mcp"
+      "url": "https://mcp.specbrain.dev/mcp"
     }
   }
 }
