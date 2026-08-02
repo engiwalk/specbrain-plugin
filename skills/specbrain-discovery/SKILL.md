@@ -1,19 +1,19 @@
 ---
-name: octopus-discovery
-description: Use when starting work on a new demand/feature for a project connected to the Octopus MCP server - deepens context by searching the shared RAG before asking anything, asks clarifying questions one at a time, and saves the resulting context plus any newly learned business rules back to the shared brain. Embodies the Product Owner persona in the Octopus pipeline.
+name: specbrain-discovery
+description: Use when starting work on a new demand/feature for a project connected to the Specbrain MCP server - deepens context by searching the shared RAG before asking anything, asks clarifying questions one at a time, and saves the resulting context plus any newly learned business rules back to the shared brain. Embodies the Product Owner persona in the Specbrain pipeline.
 ---
 
-# Octopus Discovery
+# Specbrain Discovery
 
 ## Overview
 
-Capture and deepen understanding of a new demand before any engineering work starts, using Octopus Engineer's shared memory (RAG) so the same business context never has to be re-explained from scratch. This skill embodies the Product Owner persona in the Octopus pipeline: discover, don't assume.
+Capture and deepen understanding of a new demand before any engineering work starts, using Specbrain's shared memory (RAG) so the same business context never has to be re-explained from scratch. This skill embodies the Product Owner persona in the Specbrain pipeline: discover, don't assume.
 
-**Requires:** the `octopus` MCP server connected (tools prefixed `mcp__octopus__`). If these tools aren't available, tell the user to run `claude mcp add --transport http octopus <server-url> --scope project` before proceeding.
+**Requires:** the `specbrain` MCP server connected (tools prefixed `mcp__specbrain__`). If these tools aren't available, tell the user to run `claude mcp add --transport http specbrain <server-url> --scope project` before proceeding.
 
-**Optional:** the `claude.ai Slack` MCP connector (tools prefixed `mcp__claude_ai_Slack__`), used only if the user opts in during Step 3. Unlike the `octopus` server, this is never required to run the skill.
+**Optional:** the `claude.ai Slack` MCP connector (tools prefixed `mcp__claude_ai_Slack__`), used only if the user opts in during Step 3. Unlike the `specbrain` server, this is never required to run the skill.
 
-**Announce at start:** "Estou usando a skill octopus-discovery para aprofundar o contexto desta demanda."
+**Announce at start:** "Estou usando a skill specbrain-discovery para aprofundar o contexto desta demanda."
 
 **Content language:** All free text persisted to the database via `save_artifact`/`save_learning` — artifact `content`, `learnings` `pattern`/`content`/`tags`, and any free-text field inside `metadata` (e.g. `acceptance_criteria`, `criteria_results[].evidence`) — must be written in English, regardless of the language the conversation is in. Proper nouns, code identifiers, and external system/API names stay exactly as given, untranslated. Everything said TO the user (questions, the announcement above, reports) stays in the user's language, unchanged.
 
@@ -23,21 +23,21 @@ Capture and deepen understanding of a new demand before any engineering work sta
 
 ### Step 1: Resolve the project
 
-Run `pwd` to get the current project path. Call `mcp__octopus__get_or_create_project` with that path as `project_path`. This is idempotent — safe to call every time, at the start of every step that needs it.
+Run `pwd` to get the current project path. Call `mcp__specbrain__get_or_create_project` with that path as `project_path`. This is idempotent — safe to call every time, at the start of every step that needs it.
 
-Then call `mcp__octopus__list_artifacts` with `type="inquiry"`, `status="pending"`. These are questions raised in a previous run of this skill that couldn't be answered at the time (see Step 7) — they are never lost, only carried forward until resolved. If any exist, list them for the user (the question, which demand's context they belong to, and whether they were flagged as blocking) and ask if any now have an answer.
+Then call `mcp__specbrain__list_artifacts` with `type="inquiry"`, `status="pending"`. These are questions raised in a previous run of this skill that couldn't be answered at the time (see Step 7) — they are never lost, only carried forward until resolved. If any exist, list them for the user (the question, which demand's context they belong to, and whether they were flagged as blocking) and ask if any now have an answer.
 
-For each one the user answers now: call `mcp__octopus__save_artifact` with `type="context"`, `parent_id` = that inquiry's own `parent_id` (the original context artifact), and `content` describing the incremental update — this is how a demand's context "stays current" without an update-in-place tool, the same pattern `octopus-discovery-slack` uses when a Slack reply lands. Then call `mcp__octopus__update_artifact_status` on the inquiry with `status="answered"`. Evaluate the answer against the same reusable-learning criteria as Step 9 below — if it's a durable business rule, `save_learning` it now rather than waiting.
+For each one the user answers now: call `mcp__specbrain__save_artifact` with `type="context"`, `parent_id` = that inquiry's own `parent_id` (the original context artifact), and `content` describing the incremental update — this is how a demand's context "stays current" without an update-in-place tool, the same pattern `specbrain-discovery-slack` uses when a Slack reply lands. Then call `mcp__specbrain__update_artifact_status` on the inquiry with `status="answered"`. Evaluate the answer against the same reusable-learning criteria as Step 9 below — if it's a durable business rule, `save_learning` it now rather than waiting.
 
-If none are answered yet, just proceed to the rest of this skill as normal — an unanswered pending inquiry never blocks starting a new demand, only `octopus-engineering` enforces that (see that skill's Step 1).
+If none are answered yet, just proceed to the rest of this skill as normal — an unanswered pending inquiry never blocks starting a new demand, only `specbrain-engineering` enforces that (see that skill's Step 1).
 
 ### Step 2: Search before asking
 
 **Before asking the user anything**, call:
-- `mcp__octopus__search_context` with a query describing the demand, to check whether related context already exists.
-- `mcp__octopus__search_learnings` with the same query, to check whether relevant business rules or patterns are already known.
+- `mcp__specbrain__search_context` with a query describing the demand, to check whether related context already exists.
+- `mcp__specbrain__search_learnings` with the same query, to check whether relevant business rules or patterns are already known.
 
-Both searches return compact previews (id + short excerpt), not full content. For any result that looks relevant, fetch its full content with `mcp__octopus__get_artifact`/`mcp__octopus__get_learning` before relying on it — the preview alone is usually too short to summarize accurately. Then **use them**: summarize what you already know back to the user and ask only about what's still unclear, instead of re-asking from scratch. This is the whole point of the shared brain — it should get faster to work with over time, not stay static.
+Both searches return compact previews (id + short excerpt), not full content. For any result that looks relevant, fetch its full content with `mcp__specbrain__get_artifact`/`mcp__specbrain__get_learning` before relying on it — the preview alone is usually too short to summarize accurately. Then **use them**: summarize what you already know back to the user and ask only about what's still unclear, instead of re-asking from scratch. This is the whole point of the shared brain — it should get faster to work with over time, not stay static.
 
 ### Step 3: Offer Slack as an additional source
 
@@ -64,11 +64,11 @@ If the user can't answer something now (needs to check with someone, a decision 
 
 ### Step 5: Flag UI involvement, if any
 
-If the demand involves UI, note this explicitly for the context artifact's `metadata`: `{"requires_ui_design": true}`. This flag is what `octopus-design` checks to decide whether it applies to this demand.
+If the demand involves UI, note this explicitly for the context artifact's `metadata`: `{"requires_ui_design": true}`. This flag is what `specbrain-design` checks to decide whether it applies to this demand.
 
 ### Step 6: Save the context
 
-Call `mcp__octopus__save_artifact` with:
+Call `mcp__specbrain__save_artifact` with:
 - `project_path`: from Step 1
 - `type`: `"context"`
 - `content`: a clear, complete written summary of the demand, incorporating everything learned in Steps 2-5
@@ -76,7 +76,7 @@ Call `mcp__octopus__save_artifact` with:
 
 ### Step 7: Persist any open questions
 
-For each question captured in Step 4 that's still unanswered, call `mcp__octopus__save_artifact` with:
+For each question captured in Step 4 that's still unanswered, call `mcp__specbrain__save_artifact` with:
 - `project_path`: from Step 1
 - `type`: `"inquiry"`
 - `status`: `"pending"`
@@ -91,11 +91,11 @@ If nothing was left unanswered, skip this step.
 Ask one more question: besides what's already been searched, is there something only a specific person knows that's worth asking directly? This runs after Step 6 (not before) because it needs the just-saved context artifact's id to link to.
 
 - If no, continue to Step 9.
-- If yes, invoke the `octopus-discovery-slack` skill (Mode A) with the topic, target person/channel, the question, and `parent_id` = the context artifact saved in Step 6. That skill handles composing, approval, sending, and tracking the reply — it does not block here: it sends (or gets approval to send), persists a `pending` inquiry, schedules a re-check, and returns. Tell the user an inquiry is open and that the demand's context will be updated automatically once a reply lands (or when they check manually) — do not wait for a reply before continuing.
+- If yes, invoke the `specbrain-discovery-slack` skill (Mode A) with the topic, target person/channel, the question, and `parent_id` = the context artifact saved in Step 6. That skill handles composing, approval, sending, and tracking the reply — it does not block here: it sends (or gets approval to send), persists a `pending` inquiry, schedules a re-check, and returns. Tell the user an inquiry is open and that the demand's context will be updated automatically once a reply lands (or when they check manually) — do not wait for a reply before continuing.
 
 ### Step 9: Save any newly learned business rules
 
-Review the conversation for anything learned about the client's business that would be useful to know automatically next time — a business rule, a domain constraint, a naming convention, anything non-obvious. For each one, call `mcp__octopus__save_learning` with:
+Review the conversation for anything learned about the client's business that would be useful to know automatically next time — a business rule, a domain constraint, a naming convention, anything non-obvious. For each one, call `mcp__specbrain__save_learning` with:
 - `project_path`: from Step 1
 - `pattern`: a short, searchable name for the lesson (e.g. `"refund-window-policy"`)
 - `content`: the lesson itself, written so it's useful without the original conversation
@@ -105,7 +105,7 @@ If nothing new was learned (the demand only used already-known context), skip th
 
 ### Step 10: Hand off
 
-Tell the user the context has been saved and what's next: if `requires_ui_design` is `true`, `octopus-design` should run first to produce a `ui_design` artifact; otherwise, `octopus-engineering` is the next skill to invoke directly to turn this into a spec, design, and tasks. If any inquiry was persisted in Step 7 with `blocking: true`, say so explicitly: `octopus-engineering` will refuse to proceed on this demand until it's resolved or explicitly overridden.
+Tell the user the context has been saved and what's next: if `requires_ui_design` is `true`, `specbrain-design` should run first to produce a `ui_design` artifact; otherwise, `specbrain-engineering` is the next skill to invoke directly to turn this into a spec, design, and tasks. If any inquiry was persisted in Step 7 with `blocking: true`, say so explicitly: `specbrain-engineering` will refuse to proceed on this demand until it's resolved or explicitly overridden.
 
 ## Checklist
 
@@ -117,6 +117,6 @@ Tell the user the context has been saved and what's next: if `requires_ui_design
 - [ ] Flagged whether the demand needs UI design
 - [ ] Saved the context via `save_artifact`
 - [ ] Persisted any open questions as `inquiry` artifacts, with the right `blocking` flag
-- [ ] Asked whether a specific person should be interviewed directly (after the context was saved), and handed off to `octopus-discovery-slack` if so
+- [ ] Asked whether a specific person should be interviewed directly (after the context was saved), and handed off to `specbrain-discovery-slack` if so
 - [ ] Saved any new learnings via `save_learning` (or explicitly confirmed there were none)
 - [ ] Told the user, at hand-off, if any blocking inquiry remains open
