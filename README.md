@@ -6,7 +6,7 @@ A Claude Code plugin that turns Claude into a full AI-driven engineering pipelin
 
 The skills in this plugin talk to Specbrain's MCP server, which requires an organization account. If your Google account doesn't have one yet, register your organization first at:
 
-**https://specbrain.dev**
+**https://admin.specbrain.dev**
 
 (Google sign-in only — takes under a minute.) Once registered, the plugin's MCP connection authenticates automatically the first time you use any Specbrain skill; no separate token or setup step.
 
