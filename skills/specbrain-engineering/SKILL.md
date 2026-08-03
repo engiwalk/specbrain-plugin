@@ -31,36 +31,42 @@ Pending inquiries without `blocking: true` never stop this step — just note th
 
 ### Step 2: Draft the spec
 
+Before writing anything, call `mcp__specbrain__search_learnings` with a query describing this demand (and `mcp__specbrain__search_context` too, if useful) — results are compact previews, so fetch the full content of anything relevant via `mcp__specbrain__get_learning` before using it. This costs virtually nothing (Specbrain's embeddings are a self-hosted model, not a paid API call) and often surfaces a prior scope/proportionality lesson — e.g. "don't over-specify this kind of integration's edge cases" — that can save the whole demand from needing multiple gate rounds later. Don't re-derive from scratch what's already known.
+
 Write a technical specification covering: what will be built, the approach, explicit scope boundaries (what's out of scope), and acceptance criteria — in English, per the content-language policy above. If a `ui_design` artifact was found in Step 1, incorporate its component/layout/state decisions into the spec directly — don't re-derive or ignore them.
 
 Keep this as an in-session working draft — do **not** call `mcp__specbrain__save_artifact` yet. Step 3 revises this same draft across gate attempts; exactly one version of it (the one that finally resolves) gets persisted, in Step 3, not here.
 
 ### Step 3: Adversarial gate
 
-Dispatch a single subagent (via the `Agent` tool, `general-purpose` type, `run_in_background: true`) as the **gate runner** — its job is to drive the spec to a resolution on its own, without further input from this session until it's done. Give it the full draft text from Step 2, and these exact instructions:
+Dispatch a single subagent (via the `Agent` tool, `general-purpose` type, `run_in_background: true`) as the **gate runner** — its job is to drive the spec to a resolution on its own, without further input from this session until it's done. Give it the full draft text from Step 2, the context artifact's `id`, the `project_path` resolved in Step 1, and these exact instructions:
 
-1. Dispatch a fresh subagent (via its own `Agent` tool call, `general-purpose` type) as the **refuting subagent** — one per attempt, never reused across attempts, so each refutation is genuinely independent. Give it the current draft and this exact framing: its job is to **try to refute** the spec, prioritized in this order:
-   1. Contradictions internal to the spec.
-   2. Core edge cases of the demand that are left undefined.
-   3. Unstated assumptions that would cause two different implementers to build different things.
-   Style, wording, or scope suggestions that don't fall into one of these three categories are not grounds for `FAILS` — note them separately, but they never block the gate on their own. Ask for a verdict (`PASSES` or `FAILS`) with concrete issues if it fails.
-2. If `PASSES`: stop the loop. Return the current draft text, verdict `PASSES`, and the attempt count.
-3. If `FAILS`: revise the draft in place to address the concrete blocking issues raised (never the non-blocking notes alone). Go back to step 1 with the revised draft, incrementing the attempt count.
-4. If the attempt count reaches 15 without a `PASSES`: stop the loop. Return the current draft text, verdict `SAFETY_CEILING`, the attempt count, and the concrete unresolved issues from the last attempt.
+1. Each round, dispatch fresh subagents in parallel (via the `Agent` tool, `general-purpose` type) — never reused across rounds, so every round's judgment is genuinely independent of prior rounds' agents (though not of prior rounds' *content*, via the round log in step 3 below):
+   - A **Correctness reviewer**: given the current draft, try to refute it, prioritized in this order: (1) contradictions internal to the spec, (2) core edge cases of the demand left undefined, (3) unstated assumptions that would cause two different implementers to build different things. Style/wording suggestions outside these three categories are non-blocking notes, never grounds for `FAILS` on their own.
+   - A **Proportionality reviewer**: given the current draft and its own "Scope boundaries" section, judge whether the draft's level of detail anywhere exceeds what this demand actually needs — it can `FAILS` the round on its own even if the Correctness reviewer `PASSES` (e.g. the previous round's fix over-corrected). Concrete issues must name the specific passage and why it's disproportionate to the stated demand.
+   - A **Security reviewer**, only when the draft involves an external tool/service, user data, authentication, or public data exposure: same `PASSES`/`FAILS` framing, focused strictly on trust-boundary/security gaps. Skip this reviewer entirely when none of those apply — don't spawn it by default.
+2. Combine verdicts: the round `PASSES` only if every reviewer dispatched this round says `PASSES`. On any `FAILS`, revise the draft in place before the next round:
+   - Correctness/Security issues: fix by addressing them directly, the smallest change that resolves the concrete issue.
+   - Proportionality issues: fix by removing or simplifying the flagged passage, or by replacing it with an explicit line in the spec's own Scope boundaries ("explicitly not handled: X — because Y") — never by adding more detail. This preference for removal never applies to a genuine Security finding; those always get fixed by addition regardless of what Proportionality says elsewhere.
+3. After every round (pass or fail), call `mcp__specbrain__save_artifact` with `project_path` from Step 1, `type="gate_round"`, `parent_id` = the previous round's `gate_round` artifact `id` (or the context artifact's `id` for this batch's first round), `content` = a short summary (each reviewer's verdict and, on a fix, what changed and why), and `metadata={"round": <n>, "verdicts": {"correctness": "PASSES"|"FAILS", "proportionality": "PASSES"|"FAILS", "security": "PASSES"|"FAILS"|null}, "resolution": "added"|"removed"|"passed"}`. Unlike the draft text itself, this is durable, embedded, and searchable — it survives across batches and is discoverable by future demands (including other users') searching for a similar scope dispute.
+4. At the start of round 5 only, before dispatching that round's reviewers, compare the current draft's length to the first round's draft length (plain word/character-count arithmetic — no extra agent call). If it has grown past roughly double, stop the loop early: return the current draft, verdict `GROWTH_WARNING`, the round count so far, and the last `gate_round` artifact's `id`.
+5. If `PASSES`: stop the loop. Return the current draft text, verdict `PASSES`, the attempt count, and the last `gate_round` artifact's `id`.
+6. If the attempt count reaches 15 without a `PASSES`: stop the loop. Return the current draft text, verdict `SAFETY_CEILING`, the attempt count, the concrete unresolved issues from the last round, and the last `gate_round` artifact's `id`.
 
-While the gate runner works, this session is free for other work — no periodic check-in interrupts it. A notification arrives when the gate runner finishes (`PASSES` or `SAFETY_CEILING`).
+While the gate runner works, this session is free for other work — no periodic check-in interrupts it. A notification arrives when the gate runner finishes (`PASSES`, `GROWTH_WARNING`, or `SAFETY_CEILING`).
 
 **On `PASSES`:** take the returned draft as the final spec text. This is the one point where the spec actually gets persisted — call `mcp__specbrain__save_artifact` with `type="spec"` and `parent_id` set to the context artifact's `id`. Call `mcp__specbrain__record_indicator` with `key="gate_pass_rate"`, `value={"passed": true, "attempts": <n>}`, `source="spec_gate"`. Proceed to Step 4.
 
-**On `SAFETY_CEILING`:** this is a genuine circuit-breaker, not a routine pause — 15 attempts without resolving means something is genuinely stuck, not merely still working. Show the user the returned draft and the concrete unresolved issues, and ask how to proceed. Four outcomes:
-1. **Run another batch** — re-dispatch a fresh gate runner (same process, same 15-attempt ceiling) starting from the returned draft. Keep a running total of attempts across batches — add this batch's returned attempt count to the total from any prior batch(es) for this same demand, so the final report (Step 7) can state the true combined figure, not just the last batch's count.
-2. **User edits the draft manually** — incorporate their edit, then re-dispatch a fresh gate runner against the edited draft. Carry forward the running attempt total from outcome 1, if any prior batch already ran.
-3. **User explicitly overrides** — accept the returned draft as final despite the unresolved issues.
-4. **User declines to override** — the returned draft is still persisted (see below), but no design or tasks are produced for it.
+**On `GROWTH_WARNING` or `SAFETY_CEILING`:** both are genuine circuit-breakers, not routine pauses — `GROWTH_WARNING` catches runaway scope creep early (by round 5) instead of waiting for all 15 rounds to burn; `SAFETY_CEILING` means 15 rounds never resolved it at all. Show the user the returned draft and the concrete unresolved issues (or the growth ratio, for `GROWTH_WARNING`), and ask how to proceed. Five outcomes:
+1. **Run another batch** — re-dispatch a fresh gate runner starting from the returned draft, its round 1 `parent_id` set to the last `gate_round` artifact's `id` (continuing the same chain, not starting a new one). Keep a running total of attempts across batches — add this batch's returned attempt count to the total from any prior batch(es) for this same demand, so the final report (Step 7) can state the true combined figure, not just the last batch's count.
+2. **User edits the draft manually** — incorporate their edit, then re-dispatch a fresh gate runner against the edited draft, same chain-continuation and running-total rules as outcome 1.
+3. **Cut scope** — ask the user which specific piece of scope is driving the unresolved complexity, and whether deferring it (to a future, separately spec'd demand) is acceptable. If yes, revise the draft to explicitly exclude it (add it to Scope boundaries), then re-dispatch a fresh gate runner against the simplified draft — same chain-continuation and running-total rules as outcome 1.
+4. **User explicitly overrides** — accept the returned draft as final despite the unresolved issues.
+5. **User declines to override** — the returned draft is still persisted (see below), but no design or tasks are produced for it.
 
-For outcomes 3 and 4, persist the returned draft exactly once via `mcp__specbrain__save_artifact` (`type="spec"`, `parent_id` set to the context artifact's `id`) — the same single-persistence rule as the `PASSES` case, just with a spec that never got a clean `PASSES`. Call `mcp__specbrain__record_indicator` with `key="gate_pass_rate"`, `value={"passed": true or false, "attempts": <n>}` (`true` only for outcome 3, the override; `false` for outcome 4, the decline; `<n>` = the running total across every batch this demand went through, per outcome 1's note above), `source="spec_gate"`. For outcome 3, proceed to Step 4. For outcome 4, do NOT proceed to Step 4 or Step 5 — do not skip Step 6 or Step 7 (a genuinely declined attempt still deserves a report and may still contain a learning worth saving; the persisted spec remains in the shared memory as-is, ready for a human or a future invocation of this skill to revise).
+For outcomes 4 and 5, persist the returned draft exactly once via `mcp__specbrain__save_artifact` (`type="spec"`, `parent_id` set to the context artifact's `id`) — the same single-persistence rule as the `PASSES` case, just with a spec that never got a clean `PASSES`. Call `mcp__specbrain__record_indicator` with `key="gate_pass_rate"`, `value={"passed": true or false, "attempts": <n>}` (`true` only for outcome 4, the override; `false` for outcome 5, the decline; `<n>` = the running total across every batch this demand went through, per outcome 1's note above), `source="spec_gate"`. For outcome 4, proceed to Step 4. For outcome 5, do NOT proceed to Step 4 or Step 5 — do not skip Step 6 or Step 7 (a genuinely declined attempt still deserves a report and may still contain a learning worth saving; the persisted spec remains in the shared memory as-is, ready for a human or a future invocation of this skill to revise).
 
-In every case (`PASSES`, override, or decline), exactly one `spec` artifact and exactly one `gate_pass_rate` indicator are produced for this demand — never more, regardless of how many attempts or batches it took to get there.
+In every case (`PASSES`, override, or decline), exactly one `spec` artifact and exactly one `gate_pass_rate` indicator are produced for this demand — never more, regardless of how many attempts or batches it took to get there. The `gate_round` chain, by contrast, keeps one entry per round across every batch — it's a process trace, not a single-persistence artifact.
 
 ### Step 4: Derive the design
 
@@ -76,7 +82,7 @@ For each task, call `mcp__specbrain__save_artifact` with `type="task"`, `parent_
 
 ### Step 6: Save new learnings
 
-Runs regardless of how the gate resolved — including when the user declined to override. Same principle as `specbrain-discovery` Step 6: if the spec/design/gate process surfaced a reusable pattern, architectural decision, or project convention worth remembering, save it via `mcp__specbrain__save_learning`. This includes patterns surfaced by the refuting subagent even when the spec was never approved — a well-articulated gap is itself worth remembering. Skip if nothing new was learned.
+Runs regardless of how the gate resolved — including when the user declined to override. Same principle as `specbrain-discovery` Step 6: if the spec/design/gate process surfaced a reusable pattern, architectural decision, or project convention worth remembering, save it via `mcp__specbrain__save_learning`. This includes patterns surfaced by a Correctness/Proportionality/Security reviewer even when the spec was never approved — a well-articulated gap is itself worth remembering. Skip if nothing new was learned.
 
 ### Step 7: Report
 
@@ -89,8 +95,9 @@ Always runs, regardless of how the gate resolved.
 
 - [ ] Resolved the project and found the parent context artifact
 - [ ] Checked for open blocking `inquiry` artifacts tied to that context, and either resolved or got an explicit override before proceeding
+- [ ] Searched existing learnings/context before drafting the spec
 - [ ] Drafted the spec in English, in-session, without saving it yet
-- [ ] Ran the adversarial gate as a background gate runner (prioritized criteria, no periodic check-ins), resolved to PASSES, explicit user override, or a deliberate decline after the 15-attempt safety ceiling
+- [ ] Ran the adversarial gate as a background gate runner (Correctness + Proportionality reviewers every round, Security when relevant, no periodic check-ins), persisting a `gate_round` artifact per round, resolved to PASSES, explicit user override, or a deliberate decline after a growth warning or the 15-attempt safety ceiling
 - [ ] Persisted exactly one `spec` artifact for this demand, regardless of how many gate attempts/batches it took
 - [ ] Recorded `gate_pass_rate` exactly once for this demand
 - [ ] If declined without override: reported that clearly and did not produce a design or tasks
