@@ -1,6 +1,6 @@
 {
   "name": "specbrain",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "AI-driven engineering pipeline (discovery, spec, design, parallel execution, QA, retrospective) backed by shared organizational memory.",
   "author": {
     "name": "Engiwalk"
