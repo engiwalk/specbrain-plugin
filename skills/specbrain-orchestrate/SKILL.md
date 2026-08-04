@@ -7,7 +7,7 @@ description: Use after specbrain-engineering has produced tasks (with metadata.d
 
 ## Overview
 
-Take the tasks produced by `specbrain-engineering` for one design and implement them in parallel — one git worktree per task, grouped into dependency-respecting waves — with an adversarial code quality/security gate before any task's work is merged. Embodies the Software Engineer persona in the Specbrain pipeline, in its parallel-execution phase. Unlike the adversarial gate in `specbrain-engineering` (which checks a spec before implementation) or `specbrain-review` (which checks acceptance criteria after implementation), this gate checks only code quality and security of each task's diff before it's allowed into the shared integration branch.
+Take the tasks produced by `specbrain-engineering` for one design and implement them in parallel — one git worktree per task, grouped into dependency-respecting waves — with an adversarial code quality/security gate before any task's work is merged. Embodies the Software Engineer persona in the Specbrain pipeline, in its parallel-execution phase. Unlike the multi-lens review in `specbrain-engineering` (which advises on a spec before implementation) or `specbrain-review` (which checks acceptance criteria after implementation), this gate is a strict pass/fail check limited to code quality and security of each task's diff before it's allowed into the shared integration branch.
 
 **Requires:** the `specbrain` MCP server connected (tools prefixed `mcp__specbrain__`), and at least one task artifact with `status="draft"` already saved for this project (normally via `specbrain-engineering`).
 

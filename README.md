@@ -26,7 +26,7 @@ If you're not sure whether you're set up correctly, use the `specbrain-doctor` s
 | `specbrain-onboarding` | — | First-time setup guidance |
 | `specbrain-discovery` | Product Owner | Gathers context for a new demand, searches shared memory first |
 | `specbrain-discovery-slack` | Product Owner | Asks a stakeholder over Slack when only they know the answer |
-| `specbrain-engineering` | Software Engineer | Spec → adversarial gate → design → tasks |
+| `specbrain-engineering` | Software Engineer | Spec → multi-lens review → design → tasks |
 | `specbrain-design` | Designer | Learns the project's design system, produces UI designs |
 | `specbrain-orchestrate` | Software Engineer | Parallel task execution with quality/security gates |
 | `specbrain-review` | QA | Verifies acceptance criteria against real code/behavior |
@@ -34,6 +34,8 @@ If you're not sure whether you're set up correctly, use the `specbrain-doctor` s
 | `specbrain-consolidate` | Tech Lead | Closes a cycle: consolidates learnings, computes indicators |
 | `specbrain-cleanup` | Tech Lead | Removes merged worktrees/branches |
 | `specbrain-doctor` | — | Diagnoses the MCP connection |
+
+`specbrain-engineering` and `specbrain-review` also dispatch five specialized reviewer agents (`agents/specbrain-{business,security,architecture,sre,performance}-reviewer.md`) — each grounds its findings in the real target codebase and the shared memory before reporting, and never issues a pass/fail verdict; only a human (with the dispatching skill) decides what's worth acting on.
 
 ## License
 

@@ -1,13 +1,13 @@
 ---
 name: specbrain-engineering
-description: Use after specbrain-discovery has captured context for a demand - writes a technical spec, puts it through an adversarial gate, derives a solution design, breaks it into tasks with acceptance criteria and dependencies, and saves everything to the Specbrain shared memory. Embodies the Software Engineer persona in the Specbrain pipeline.
+description: Use after specbrain-discovery has captured context for a demand - writes a technical spec, puts it through a multi-lens review (business/security/architecture/sre/performance), derives a solution design, breaks it into tasks with acceptance criteria and dependencies, and saves everything to the Specbrain shared memory. Embodies the Software Engineer persona in the Specbrain pipeline.
 ---
 
 # Specbrain Engineering
 
 ## Overview
 
-Turn a captured context into a technical spec, a solution design, and a set of isolated, acceptance-criteria-bearing tasks — with an adversarial gate between spec and design so ambiguity gets caught before implementation work is planned, not after. Embodies the Software Engineer persona in the Specbrain pipeline.
+Turn a captured context into a technical spec, a solution design, and a set of isolated, acceptance-criteria-bearing tasks — with a multi-lens review between spec and design so ambiguity gets caught before implementation work is planned, not after. Embodies the Software Engineer persona in the Specbrain pipeline.
 
 **Requires:** the `specbrain` MCP server connected (tools prefixed `mcp__specbrain__`), and a context artifact already saved for this project (normally via `specbrain-discovery`).
 
@@ -35,42 +35,33 @@ Before writing anything, call `mcp__specbrain__search_learnings` with a query de
 
 Write a technical specification covering: what will be built, the approach, explicit scope boundaries (what's out of scope), and acceptance criteria — in English, per the content-language policy above. If a `ui_design` artifact was found in Step 1, incorporate its component/layout/state decisions into the spec directly — don't re-derive or ignore them.
 
-Keep this as an in-session working draft — do **not** call `mcp__specbrain__save_artifact` yet. Step 3 revises this same draft across gate attempts; exactly one version of it (the one that finally resolves) gets persisted, in Step 3, not here.
+Keep this as an in-session working draft — do **not** call `mcp__specbrain__save_artifact` yet. Step 3 revises this same draft across review rounds; exactly one version of it (the one that finally settles) gets persisted, in Step 3, not here.
 
-### Step 3: Adversarial gate
+### Step 3: Multi-lens review
 
-Dispatch a single subagent (via the `Agent` tool, `general-purpose` type, `run_in_background: true`) as the **gate runner** — its job is to drive the spec to a resolution on its own, without further input from this session until it's done. Give it the full draft text from Step 2, the context artifact's `id`, the `project_path` resolved in Step 1, and these exact instructions:
+Unlike a pass/fail gate, this step is advisory: specialized reviewer subagents each analyze the draft through their own lens and report grounded findings — never a verdict — and this session, together with the user for anything ambiguous, decides what's real and worth acting on. There is no background "gate runner" and no fixed round ceiling; this session dispatches reviewers itself, in the foreground, and sees every round's findings directly.
 
-1. Each round, dispatch fresh subagents in parallel (via the `Agent` tool, `general-purpose` type) — never reused across rounds, so every round's judgment is genuinely independent of prior rounds' agents (though not of prior rounds' *content*, via the round log in step 3 below):
-   - A **Correctness reviewer**: given the current draft, try to refute it, prioritized in this order: (1) contradictions internal to the spec, (2) core edge cases of the demand left undefined, (3) unstated assumptions that would cause two different implementers to build different things. Style/wording suggestions outside these three categories are non-blocking notes, never grounds for `FAILS` on their own.
-   - A **Proportionality reviewer**: given the current draft and its own "Scope boundaries" section, judge whether the draft's level of detail anywhere exceeds what this demand actually needs — it can `FAILS` the round on its own even if the Correctness reviewer `PASSES` (e.g. the previous round's fix over-corrected). Concrete issues must name the specific passage and why it's disproportionate to the stated demand.
-   - A **Security reviewer**, only when the draft involves an external tool/service, user data, authentication, or public data exposure: same `PASSES`/`FAILS` framing, focused strictly on trust-boundary/security gaps. Skip this reviewer entirely when none of those apply — don't spawn it by default.
-2. Combine verdicts: the round `PASSES` only if every reviewer dispatched this round says `PASSES`. On any `FAILS`, revise the draft in place before the next round:
-   - Correctness/Security issues: fix by addressing them directly, the smallest change that resolves the concrete issue.
-   - Proportionality issues: fix by removing or simplifying the flagged passage, or by replacing it with an explicit line in the spec's own Scope boundaries ("explicitly not handled: X — because Y") — never by adding more detail. This preference for removal never applies to a genuine Security finding; those always get fixed by addition regardless of what Proportionality says elsewhere.
-3. After every round (pass or fail), call `mcp__specbrain__save_artifact` with `project_path` from Step 1, `type="gate_round"`, `parent_id` = the previous round's `gate_round` artifact `id` (or the context artifact's `id` for this batch's first round), `content` = a short summary (each reviewer's verdict and, on a fix, what changed and why), and `metadata={"round": <n>, "verdicts": {"correctness": "PASSES"|"FAILS", "proportionality": "PASSES"|"FAILS", "security": "PASSES"|"FAILS"|null}, "resolution": "added"|"removed"|"passed"}`. Unlike the draft text itself, this is durable, embedded, and searchable — it survives across batches and is discoverable by future demands (including other users') searching for a similar scope dispute.
-4. At the start of round 5 only, before dispatching that round's reviewers, compare the current draft's length to the first round's draft length (plain word/character-count arithmetic — no extra agent call). If it has grown past roughly double, stop the loop early: return the current draft, verdict `GROWTH_WARNING`, the round count so far, and the last `gate_round` artifact's `id`.
-5. If `PASSES`: stop the loop. Return the current draft text, verdict `PASSES`, the attempt count, and the last `gate_round` artifact's `id`.
-6. If the attempt count reaches 15 without a `PASSES`: stop the loop. Return the current draft text, verdict `SAFETY_CEILING`, the attempt count, the concrete unresolved issues from the last round, and the last `gate_round` artifact's `id`.
+1. **Decide which lenses are relevant to this specific demand.** This is a judgment call, not a mechanical rule — never dispatch a lens "just in case." As a starting orientation:
+   - `specbrain-business-reviewer` and `specbrain-architecture-reviewer`: relevant to nearly every demand.
+   - `specbrain-security-reviewer`: relevant when the demand touches authentication, user data, an external tool/service, or public data exposure.
+   - `specbrain-performance-reviewer`: relevant when the demand introduces new queries, meaningful data volume, or async/background processing.
+   - `specbrain-sre-reviewer`: relevant when the demand introduces a new runtime component, or changes something that could fail silently in production.
+2. **Dispatch the relevant reviewers directly, in parallel**, via the `Agent` tool with `agentType` set to each lens's name (e.g. `specbrain-business-reviewer`) — never `run_in_background`. Give each: the current draft, the context artifact's full `content` (the demand's real usage profile, so lenses weigh proportionality against reality instead of an imagined worst case), and the `project_path` resolved in Step 1 (every one of its `mcp__specbrain__*` calls must use this `project_path`, never its own `pwd`).
+3. **Read every reviewer's findings yourself.** Each finding is tagged `grounded` (backed by a concrete `file:line` citation from the real codebase, or a concrete learning/context reference) or `ungrounded` (no such evidence). Treat an `ungrounded` finding as a hypothesis to weigh, never as an automatic action item.
+4. **Decide what's real and worth acting on — always your and the user's judgment, never a lens's own verdict.** For each finding, ask: does it hold up against the actual codebase and the demand's real, stated scope? Does an existing, simpler mechanism already cover it? When it's ambiguous or contested (e.g. two lenses point in different directions), ask the user directly rather than deciding alone. Revise the draft only for findings you both judge genuinely worth addressing — the smallest change that resolves it, preferring an existing project convention over inventing a new mechanism. If a finding keeps surfacing complexity around one specific piece of scope, consider cutting that piece (move it to the spec's own Scope boundaries, to be spec'd separately later) rather than solving it in increasingly elaborate ways.
 
-While the gate runner works, this session is free for other work — no periodic check-in interrupts it. A notification arrives when the gate runner finishes (`PASSES`, `GROWTH_WARNING`, or `SAFETY_CEILING`).
+   For each finding you judge genuinely worth acting on, also decide where the correction actually belongs: if it's just this spec's own drafting (an omission, a misreading of the context, a missing detail), revise the draft only, as above. But if it reveals that the **context artifact itself** — what `specbrain-discovery` originally captured — was incomplete or wrong, and this actually changes the proposed solution, also revise the context: `save_artifact` with `type="context"`, `parent_id` set to the original context artifact's `id`, `content` describing the incremental correction (same mechanism Step 1 already uses for resolving a blocking inquiry). This is judgment, not automatic — a finding that's merely a spec-wording fix never needs this; one that changes what the demand is actually understood to require does, so future demands searching context via `search_context` inherit the correction too, not just this one spec.
+5. **Persist the round**, whether or not anything changed: call `mcp__specbrain__save_artifact` with `project_path` from Step 1, `type="gate_round"`, `parent_id` = the previous round's `gate_round` artifact `id` (or the context artifact's `id` for round 1), `content` = a short summary of each lens's findings and what was decided about them, `metadata={"round": <n>, "findings": [{"lens": "business"|"security"|"architecture"|"sre"|"performance", "severity": "critical"|"attention"|"note", "grounded": true|false, "disposition": "actioned"|"dismissed"}, ...]}`.
+6. **Record indicators for this round.** For each lens dispatched this round, call `mcp__specbrain__record_indicator` with `key="review_panel_grounding_rate"`, `source="<lens name, e.g. business>"`, `value={"grounded": <n>, "ungrounded": <n>}` (counts among that lens's findings this round). Once per round (not per lens): call `mcp__specbrain__record_indicator` with `key="review_panel_summary"`, `source="multi_lens_review_spec"`, `value={"rounds": <n so far>, "findings_total": <n>, "findings_actioned": <n>, "findings_dismissed": <n>}` (cumulative across every round this demand has had so far).
+7. **Decide whether another round is needed.** Default to stopping after round 1. If you run a second round, dispatch only the lenses whose domain was materially touched by a revision you just made — never re-run a lens whose area didn't change. After that second round, always stop and ask the user explicitly whether to run more, rather than deciding to continue on your own. There is no fixed ceiling here (no 15-attempt safety valve, no growth-ratio checkpoint) — the stopping condition is your and the user's shared judgment that the draft is good enough, not a round count or a mechanical threshold.
 
-**On `PASSES`:** take the returned draft as the final spec text. This is the one point where the spec actually gets persisted — call `mcp__specbrain__save_artifact` with `type="spec"` and `parent_id` set to the context artifact's `id`. Call `mcp__specbrain__record_indicator` with `key="gate_pass_rate"`, `value={"passed": true, "attempts": <n>}`, `source="spec_gate"`. Proceed to Step 4.
+Once you (and the user, for anything that was ambiguous) consider the draft settled: this is the one point where the spec text actually gets persisted — call `mcp__specbrain__save_artifact` with `type="spec"` and `parent_id` set to the context artifact's `id`. Proceed to Step 4.
 
-**On `GROWTH_WARNING` or `SAFETY_CEILING`:** both are genuine circuit-breakers, not routine pauses — `GROWTH_WARNING` catches runaway scope creep early (by round 5) instead of waiting for all 15 rounds to burn; `SAFETY_CEILING` means 15 rounds never resolved it at all. Show the user the returned draft and the concrete unresolved issues (or the growth ratio, for `GROWTH_WARNING`), and ask how to proceed. Five outcomes:
-1. **Run another batch** — re-dispatch a fresh gate runner starting from the returned draft, its round 1 `parent_id` set to the last `gate_round` artifact's `id` (continuing the same chain, not starting a new one). Keep a running total of attempts across batches — add this batch's returned attempt count to the total from any prior batch(es) for this same demand, so the final report (Step 7) can state the true combined figure, not just the last batch's count.
-2. **User edits the draft manually** — incorporate their edit, then re-dispatch a fresh gate runner against the edited draft, same chain-continuation and running-total rules as outcome 1.
-3. **Cut scope** — ask the user which specific piece of scope is driving the unresolved complexity, and whether deferring it (to a future, separately spec'd demand) is acceptable. If yes, revise the draft to explicitly exclude it (add it to Scope boundaries), then re-dispatch a fresh gate runner against the simplified draft — same chain-continuation and running-total rules as outcome 1.
-4. **User explicitly overrides** — accept the returned draft as final despite the unresolved issues.
-5. **User declines to override** — the returned draft is still persisted (see below), but no design or tasks are produced for it.
-
-For outcomes 4 and 5, persist the returned draft exactly once via `mcp__specbrain__save_artifact` (`type="spec"`, `parent_id` set to the context artifact's `id`) — the same single-persistence rule as the `PASSES` case, just with a spec that never got a clean `PASSES`. Call `mcp__specbrain__record_indicator` with `key="gate_pass_rate"`, `value={"passed": true or false, "attempts": <n>}` (`true` only for outcome 4, the override; `false` for outcome 5, the decline; `<n>` = the running total across every batch this demand went through, per outcome 1's note above), `source="spec_gate"`. For outcome 4, proceed to Step 4. For outcome 5, do NOT proceed to Step 4 or Step 5 — do not skip Step 6 or Step 7 (a genuinely declined attempt still deserves a report and may still contain a learning worth saving; the persisted spec remains in the shared memory as-is, ready for a human or a future invocation of this skill to revise).
-
-In every case (`PASSES`, override, or decline), exactly one `spec` artifact and exactly one `gate_pass_rate` indicator are produced for this demand — never more, regardless of how many attempts or batches it took to get there. The `gate_round` chain, by contrast, keeps one entry per round across every batch — it's a process trace, not a single-persistence artifact.
+The `gate_pass_rate`/`spec_gate` indicator belonged to the old pass/fail gate design and is not recorded by this step — it remains as historical data from before this redesign, not a metric this step continues.
 
 ### Step 4: Derive the design
 
-From the persisted spec (whether it resolved via `PASSES` or an explicit user override), write the solution design (architecture, components, data flow, key decisions). Save via `mcp__specbrain__save_artifact` with `type="design"` and `parent_id` set to the spec artifact's `id`.
+From the persisted, settled spec, write the solution design (architecture, components, data flow, key decisions) — it already reflects whatever Step 3's review resolved, since that step edits the spec draft directly rather than tracking decisions separately. Save via `mcp__specbrain__save_artifact` with `type="design"` and `parent_id` set to the spec artifact's `id`.
 
 ### Step 5: Break into tasks
 
@@ -82,14 +73,11 @@ For each task, call `mcp__specbrain__save_artifact` with `type="task"`, `parent_
 
 ### Step 6: Save new learnings
 
-Runs regardless of how the gate resolved — including when the user declined to override. Same principle as `specbrain-discovery` Step 6: if the spec/design/gate process surfaced a reusable pattern, architectural decision, or project convention worth remembering, save it via `mcp__specbrain__save_learning`. This includes patterns surfaced by a Correctness/Proportionality/Security reviewer even when the spec was never approved — a well-articulated gap is itself worth remembering. Skip if nothing new was learned.
+Runs regardless of how far the demand got. Same principle as `specbrain-discovery` Step 6: if the spec/design/review process surfaced a reusable pattern, architectural decision, or project convention worth remembering — beyond what individual reviewer lenses already saved for themselves in Step 3 — save it via `mcp__specbrain__save_learning`. This includes patterns surfaced by any lens even when a finding was ultimately dismissed as disproportionate — a well-articulated false positive is itself worth remembering, tagged so a future demand doesn't have the same lens re-raise it. Skip if nothing new was learned.
 
 ### Step 7: Report
 
-Always runs, regardless of how the gate resolved.
-
-- If the gate resolved to PASSES or an explicit user override: tell the user the spec passed the gate (or was overridden) after N total attempts, the design and tasks (with their dependencies) are saved, and that `specbrain-orchestrate` is the next step to implement them.
-- If the user declined to override after the safety ceiling: tell the user the spec remains saved but unresolved, no design or tasks were produced, and that revising the spec (either manually or by re-invoking this skill) is the next step whenever they're ready — this is a valid, deliberate stopping point, not a failure of the skill itself.
+Always runs. Tell the user: how many rounds the multi-lens review took, which lenses were dispatched and why, a summary of findings (how many were actioned vs. dismissed, and the reasoning for anything contested), whether any finding led to a context artifact revision (and why), that the spec/design/tasks are saved, and that `specbrain-orchestrate` is the next step to implement them. If the user chose to stop before the spec felt settled (e.g. to revise it manually first), say so plainly — the spec remains saved as-is, and re-invoking this skill or editing it directly are both valid next steps; this is a deliberate stopping point, not a failure of the skill.
 
 ## Checklist
 
@@ -97,10 +85,10 @@ Always runs, regardless of how the gate resolved.
 - [ ] Checked for open blocking `inquiry` artifacts tied to that context, and either resolved or got an explicit override before proceeding
 - [ ] Searched existing learnings/context before drafting the spec
 - [ ] Drafted the spec in English, in-session, without saving it yet
-- [ ] Ran the adversarial gate as a background gate runner (Correctness + Proportionality reviewers every round, Security when relevant, no periodic check-ins), persisting a `gate_round` artifact per round, resolved to PASSES, explicit user override, or a deliberate decline after a growth warning or the 15-attempt safety ceiling
-- [ ] Persisted exactly one `spec` artifact for this demand, regardless of how many gate attempts/batches it took
-- [ ] Recorded `gate_pass_rate` exactly once for this demand
-- [ ] If declined without override: reported that clearly and did not produce a design or tasks
-- [ ] Derived and saved the design (only if the gate resolved to PASSES or override)
-- [ ] Broke the design into tasks with `task_kind: "feature"`, acceptance criteria, and dependencies (`depends_on`), each saved in dependency order (only if the gate resolved to PASSES or override)
-- [ ] Saved any new learnings (or explicitly confirmed there were none)
+- [ ] Ran the multi-lens review as a foreground, judgment-driven process (not a background loop or a pass/fail gate): picked relevant lenses deliberately, read every finding's grounding, decided with the user what was worth acting on, persisted a `gate_round` artifact per round
+- [ ] For any actioned finding that revealed a context gap (not just a spec-drafting issue), saved a context artifact revision alongside the spec fix
+- [ ] Recorded `review_panel_grounding_rate` per lens dispatched and `review_panel_summary` once per round
+- [ ] Persisted exactly one `spec` artifact for this demand, regardless of how many review rounds it took
+- [ ] Derived and saved the design from the settled spec
+- [ ] Broke the design into tasks with `task_kind: "feature"`, acceptance criteria, and dependencies (`depends_on`), each saved in dependency order
+- [ ] Saved any new learnings beyond what individual lenses already saved (or explicitly confirmed there were none)
