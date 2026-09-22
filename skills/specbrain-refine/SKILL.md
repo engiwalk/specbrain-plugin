@@ -15,6 +15,8 @@ Re-enter an existing demand's cycle when review finds something wrong, instead o
 
 **Content language:** same rule as every other Specbrain skill — everything persisted via `save_artifact`/`save_learning` is written in English; everything said to the user (questions, this announcement, reports) stays in their language.
 
+**Using and saving learnings:** every result from `search_learnings` carries `confidence` and `source_kind` — weigh a `proposed` learning as a lead, not as a fact. Call `mcp__specbrain__record_learning_usage` for the ones you actually used, with `stage="refine"` and the design's `artifact_id`. When saving, always pass `source_kind`, `source_ref` and `origin_artifact_id`, and resolve a `result="conflict"` response with the user via `mcp__specbrain__resolve_learning_conflict` instead of rephrasing and retrying.
+
 ## Process
 
 ### Step 1: Resolve the design being reopened
@@ -42,6 +44,16 @@ This is the key judgment call — don't default to either answer:
 - If context and design were fine and this is a pure implementation slip, skip this — new tasks in Step 6 attach to the existing design unchanged.
 - Either way, call `mcp__specbrain__record_indicator` with `key="refine_root_cause"`, `value={"cause": "context_gap"|"design_gap"|"implementation_slip", "task_kind": "<from Step 4>"}`, `source="refine"`.
 
+### Step 5b: Decide whether the shared memory itself was wrong
+
+**Mandatory, not optional.** Ask explicitly: did a learning contribute to this defect? Call `mcp__specbrain__search_learnings` on the topic of what went wrong, and look at what the demand actually had in context — `record_learning_usage` rows from the original cycle are exactly what make this answerable.
+
+- If a learning asserted something that turned out not to be true: call `mcp__specbrain__dispute_learning` with a one-sentence `reason` describing what actually happened. It stops being retrieved immediately and lands in Admin Web's review queue. If the corrected statement is already clear, `resolve_learning_conflict` with `supersede` is better than leaving a hole.
+- If a **directive** steered the work into this defect, say so to the user and point them at Admin Web to pause it — no skill can pause a directive.
+- If the memory had nothing to do with it, say that plainly and move on. Disputing something to look thorough is worse than disputing nothing: it removes true knowledge from retrieval.
+
+This is the only mechanism by which the shared memory learns it was wrong. Skipping it leaves a false statement steering every future demand.
+
 ### Step 6: Record a review miss, if applicable
 
 If the design was `in_review` or `finished` before Step 2 (i.e., it had already been through review once) **and** `task_kind` is `bug`: call `mcp__specbrain__record_indicator` with `key="review_miss"`, `value={"design_id": "<id>", "note": "<a short, human-readable one-sentence description of what was missed>"}`, `source="refine"`. `note` is drawn from Step 3's investigation of what was actually wrong — already gathered by this point, not a new investigation step. This is what it literally means for something to have passed review and turned out not to be fine. Skip this for `tech_debt`/`security` — an improvement or a newly-surfaced hardening need isn't a miss, it's new information.
@@ -66,6 +78,7 @@ Tell the user: what was reopened and why, whether context/design were revised or
 - [ ] Searched existing context/learnings before asking the user anything; asked clarifying questions one at a time
 - [ ] Classified `task_kind` (`bug`/`tech_debt`/`security`)
 - [ ] Judged whether context/design were genuinely wrong (not just the code) — revised via a new chained artifact only if so; recorded `refine_root_cause` either way
+- [ ] Asked explicitly whether a learning or directive contributed to the defect, and disputed/superseded it if so (or stated plainly that the memory wasn't involved)
 - [ ] Recorded `review_miss` when a `bug` task reopens a design that had already been `in_review` or `finished`
 - [ ] Created new tasks with `task_kind` set, parented under the current design
 - [ ] Saved any new learnings from the investigation (or explicitly confirmed there were none)

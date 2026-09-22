@@ -1,6 +1,6 @@
 ---
 name: specbrain-consolidate
-description: Use when the user confirms a demand actually works end to end (after specbrain-review moved its design to in_review) - marks the design finished, consolidates duplicate/overlapping learnings, computes task-kind/defect-rate indicators for the demand, reviews all recorded indicators for process insight, and turns each actionable one into a directive proposed for the pipeline stage it should steer (pending human approval in Admin Web). Suggests specbrain-cleanup at the end, never runs it. Can be invoked by the user directly or by an agent. Embodies the Tech Lead persona in the Specbrain pipeline, closing out a cycle.
+description: Use when the user confirms a demand actually works end to end (after specbrain-review moved its design to in_review) - marks the design finished, works the shared memory's review queue (disputed learnings, ones due for review, ones this cycle proved out), computes task-kind/defect-rate indicators for the demand, reviews all recorded indicators for process insight, and turns each actionable one into a directive proposed for the pipeline stage it should steer (pending human approval in Admin Web). Suggests specbrain-cleanup at the end, never runs it. Can be invoked by the user directly or by an agent. Embodies the Tech Lead persona in the Specbrain pipeline, closing out a cycle.
 ---
 
 # Specbrain Consolidate
@@ -23,12 +23,17 @@ Run `pwd`, call `mcp__specbrain__get_or_create_project`. Call `mcp__specbrain__l
 
 **Directives for this stage.** Call `mcp__specbrain__get_directives` with `stage="consolidate"` and `artifact_id` = the closed design's `id`, and follow every returned `instruction` verbatim for the rest of this skill. If `dropped_count` is greater than zero, say so to the user.
 
-### Step 2: Consolidate learnings
+### Step 2: Work the memory's review queue
 
-1. Call `mcp__specbrain__list_learnings` for this project.
-2. Review the full list for near-duplicate or clearly overlapping entries (same `pattern`, or different patterns describing the same underlying rule/constraint).
-3. For each such cluster: write ONE new, clearer learning via `mcp__specbrain__save_learning` that captures everything useful across the cluster — **save this first**, before removing anything, so no information is ever lost mid-step. Then call `mcp__specbrain__delete_learning` for each of the old, now-redundant learnings in that cluster.
-4. If nothing is actually redundant, don't force a consolidation — say so and move on.
+Near-duplicates no longer accumulate silently: `save_learning` refuses to write next to a learning it might contradict, so the work here is the queue the server already produced, not a manual scan of everything.
+
+1. Call `mcp__specbrain__list_learnings` with `status="disputed"` — something contradicted these, and they are not being retrieved while they sit there. For each, with the user: if the correct statement is now clear, `resolve_learning_conflict` with `supersede` (or `update_learning` when only the wording was wrong); if it turned out to be true after all, say so and point the user at Admin Web, which is the only place a learning can be confirmed.
+2. Call `mcp__specbrain__list_learnings` with no filter and look for entries whose `review_due_at` has passed. Same treatment: correct, supersede, retire, or leave alone with a reason.
+3. Call `mcp__specbrain__list_learnings` with `confidence="proposed"` for this demand's topic. Anything this cycle independently proved out — the implementation and review confirmed it holds — gets `mcp__specbrain__corroborate_learning`. Do not corroborate something merely because it was retrieved; corroboration means it was checked.
+4. If a learning is genuinely broader than the project it was saved in (it holds for the whole organization), `update_learning` with `visibility="organization"` so other projects stop rediscovering it.
+5. If the queue is empty, say so and move on. Do not invent consolidation work.
+
+Deleting is not part of this step. A learning that turned out to be wrong is disputed or superseded — the wrong statement plus its reason is evidence about how the memory fails, and deleting it throws that away. `delete_learning` is for a learning that should never have existed at all.
 
 ### Step 3: Compute this demand's task-kind and defect-rate indicators
 
@@ -66,12 +71,12 @@ If `mcp__specbrain__list_learnings` shows learnings tagged `process-insight` fro
 
 ### Step 6: Report
 
-Tell the user: that the design was marked `finished`; which learnings were consolidated (old → new, and how many were removed); this demand's task-kind breakdown and defect rate; and which directives were proposed, for which stages — stating explicitly that they are **pending approval in Admin Web and are not yet in effect**, and where to approve them. If the indicators didn't show anything conclusive yet, say that plainly instead of proposing a directive to have something to show. Close by telling them `specbrain-cleanup` is available whenever they've merged the integration branch (via PR or manually) — do not run it, just mention it.
+Tell the user: that the design was marked `finished`; what was done with the memory's review queue (what was superseded, corroborated, retired, or left alone and why); this demand's task-kind breakdown and defect rate; and which directives were proposed, for which stages — stating explicitly that they are **pending approval in Admin Web and are not yet in effect**, and where to approve them. If the indicators didn't show anything conclusive yet, say that plainly instead of proposing a directive to have something to show. Close by telling them `specbrain-cleanup` is available whenever they've merged the integration branch (via PR or manually) — do not run it, just mention it.
 
 ## Checklist
 
 - [ ] Found the design awaiting confirmation (or told the user none exists) and confirmed with the user before marking it `finished`
-- [ ] Reviewed all learnings for the project; consolidated any real duplicates (new learning saved before old ones deleted)
+- [ ] Worked the memory's review queue: disputed learnings, anything past `review_due_at`, and proposed learnings this cycle actually proved out (corroborated only what was checked)
 - [ ] Computed `task_kind_distribution` and (if applicable) `demand_defect_rate` for the closed design, spanning every task across all rounds
 - [ ] Reviewed all indicators grouped by `(key, source)`, including `review_miss`/`refine_root_cause` history; kept only observations that name a stage they should steer
 - [ ] Proposed those as directives via `save_directive` (one imperative sentence each, with `origin_indicator_ids`) — never as `process-insight` learnings

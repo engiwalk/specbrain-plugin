@@ -15,6 +15,10 @@ Verify that what was actually built satisfies the acceptance criteria written du
 
 **Content language:** All free text persisted to the database via `save_artifact`/`save_learning` — artifact `content`, `learnings` `pattern`/`content`/`tags`, and any free-text field inside `metadata` (e.g. `acceptance_criteria`, `criteria_results[].evidence`) — must be written in English, regardless of the language the conversation is in. Proper nouns, code identifiers, and external system/API names stay exactly as given, untranslated. Everything said TO the user (questions, the announcement above, reports) stays in the user's language, unchanged.
 
+**Using and saving learnings:** every result from `search_learnings` carries `confidence` (`proposed`, `corroborated`, `confirmed`) and `source_kind` — weigh a `proposed` learning as a lead, not as a fact. After using any of them, call `mcp__specbrain__record_learning_usage` with the ids you **actually used**, `stage="review"` and the design's `artifact_id`. When saving, always pass `source_kind` and `source_ref` and `origin_artifact_id`. If `save_learning` comes back with `result="conflict"`, **nothing was written**: resolve it with the user via `mcp__specbrain__resolve_learning_conflict` rather than rephrasing and retrying.
+
+Verification is also the moment a learning earns trust: when checking an acceptance criterion independently confirms something the shared memory already asserted, call `mcp__specbrain__corroborate_learning` on it. That raises `proposed` to `corroborated` — it never reaches `confirmed`, which only a human does in Admin Web.
+
 ## Process
 
 ### Step 1: Resolve the project and find the tasks to validate

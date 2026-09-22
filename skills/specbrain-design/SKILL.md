@@ -15,6 +15,8 @@ Learn a project's design system well enough to describe how a specific screen or
 
 **Content language:** All free text persisted to the database via `save_artifact`/`save_learning` — artifact `content`, `learnings` `pattern`/`content`/`tags`, and any free-text field inside `metadata` (e.g. `acceptance_criteria`, `criteria_results[].evidence`) — must be written in English, regardless of the language the conversation is in. Proper nouns, code identifiers, and external system/API names stay exactly as given, untranslated. Everything said TO the user (questions, the announcement above, reports) stays in the user's language, unchanged.
 
+**Using and saving learnings:** every result from `search_learnings` carries `confidence` (`proposed`, `corroborated`, `confirmed`) and `source_kind` — weigh a `proposed` learning as a lead, not as a fact. After using any of them, call `mcp__specbrain__record_learning_usage` with the ids you **actually used** (not everything returned), `stage="design"` and the demand's `artifact_id`. When saving a design-system fact, always pass `source_kind` (usually `code`, since these are read out of the project's own code) and `source_ref` with the files it was read from, plus `origin_artifact_id`. If `save_learning` comes back with `result="conflict"`, **nothing was written**: show the candidates to the user, decide together which is true, and call `mcp__specbrain__resolve_learning_conflict` with `supersede`, `merge` or `keep_both_disputed`.
+
 ## Process
 
 ### Step 1: Resolve the project and check applicability

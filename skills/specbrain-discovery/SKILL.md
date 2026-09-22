@@ -17,6 +17,8 @@ Capture and deepen understanding of a new demand before any engineering work sta
 
 **Content language:** All free text persisted to the database via `save_artifact`/`save_learning` — artifact `content`, `learnings` `pattern`/`content`/`tags`, and any free-text field inside `metadata` (e.g. `acceptance_criteria`, `criteria_results[].evidence`) — must be written in English, regardless of the language the conversation is in. Proper nouns, code identifiers, and external system/API names stay exactly as given, untranslated. Everything said TO the user (questions, the announcement above, reports) stays in the user's language, unchanged.
 
+**Using and saving learnings:** every result from `search_learnings` carries `confidence` (`proposed`, `corroborated`, `confirmed`) and `source_kind` — weigh a `proposed` learning as a lead, not as a fact, and say so to the user when it matters. After using any of them, call `mcp__specbrain__record_learning_usage` with the ids you **actually used** (not everything returned), the stage name, and the demand's `artifact_id` once it exists: that trace is what later makes it possible to ask what informed work that turned out to be wrong. When saving, always pass `source_kind` and `source_ref` (commit, PR, file path, ticket — whatever the statement came from) and `origin_artifact_id`. If `save_learning` comes back with `result="conflict"`, **nothing was written**: show the candidates to the user, decide together which is true, and call `mcp__specbrain__resolve_learning_conflict` with `supersede`, `merge` or `keep_both_disputed`. Never rephrase and retry — that only puts two contradictory statements in the memory with equal authority.
+
 **Slack sourcing:** Anything learned from a Slack message (Step 3) must be paraphrased into your own words before it reaches `content` in `save_artifact`/`save_learning` — never quote message text verbatim and never attribute it to a specific person or channel. That content lands in the shared, project-wide RAG, visible to anyone who later runs discovery on this project; treat Slack the way you'd treat a source you're citing in your own words, not transcribing.
 
 ## Process
@@ -121,5 +123,6 @@ Tell the user the context has been saved and what's next: if `requires_ui_design
 - [ ] Saved the context via `save_artifact`
 - [ ] Persisted any open questions as `inquiry` artifacts, with the right `blocking` flag
 - [ ] Asked whether a specific person should be interviewed directly (after the context was saved), and handed off to `specbrain-discovery-slack` if so
-- [ ] Saved any new learnings via `save_learning` (or explicitly confirmed there were none)
+- [ ] Recorded `record_learning_usage` for the learnings actually used, and saved any new ones with `source_kind`/`source_ref`/`origin_artifact_id` (or explicitly confirmed there were none)
+- [ ] Resolved any `conflict` response with the user instead of rephrasing and retrying
 - [ ] Told the user, at hand-off, if any blocking inquiry remains open

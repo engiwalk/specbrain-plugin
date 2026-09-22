@@ -15,6 +15,8 @@ Turn a captured context into a technical spec, a solution design, and a set of i
 
 **Content language:** All free text persisted to the database via `save_artifact`/`save_learning` — artifact `content`, `learnings` `pattern`/`content`/`tags`, and any free-text field inside `metadata` (e.g. `acceptance_criteria`, `criteria_results[].evidence`) — must be written in English, regardless of the language the conversation is in. Proper nouns, code identifiers, and external system/API names stay exactly as given, untranslated. Everything said TO the user (questions, the announcement above, reports) stays in the user's language, unchanged.
 
+**Using and saving learnings:** every result from `search_learnings` carries `confidence` (`proposed`, `corroborated`, `confirmed`) and `source_kind` — weigh a `proposed` learning as a lead, not as a fact. After using any of them, call `mcp__specbrain__record_learning_usage` with the ids you **actually used** (not everything returned), the stage name and the demand's `artifact_id`: that trace is what later makes it possible to ask what informed work that turned out to be wrong. When saving, always pass `source_kind` and `source_ref` (commit, PR, file path, ticket — whatever the statement came from) and `origin_artifact_id`. If `save_learning` comes back with `result="conflict"`, **nothing was written**: show the candidates to the user, decide together which is true, and call `mcp__specbrain__resolve_learning_conflict` with `supersede`, `merge` or `keep_both_disputed`. Never rephrase and retry — that only puts two contradictory statements in the memory with equal authority.
+
 ## Process
 
 ### Step 1: Resolve the project and retrieve context
