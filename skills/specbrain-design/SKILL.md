@@ -21,6 +21,8 @@ Learn a project's design system well enough to describe how a specific screen or
 
 Run `pwd` to get the current project path. Call `mcp__specbrain__get_or_create_project`. Then call `mcp__specbrain__list_artifacts` with `type="context"` to find the most recent context artifact. If none exists, tell the user to run `specbrain-discovery` first and stop here. If it exists but `metadata.requires_ui_design` is `false`, tell the user this skill isn't needed for this demand and stop here.
 
+**Directives for this stage.** Once the demand applies, call `mcp__specbrain__get_directives` with `stage="design"` and `artifact_id` = the context artifact's `id`. Every returned `instruction` is a steering rule this organization approved for this exact stage — follow each one verbatim for the rest of this skill. Directives are retrieved by stage, not by similarity, so they apply whether or not they resemble the demand. If `dropped_count` is greater than zero, tell the user some directives didn't fit the context budget: silently truncated steering is worse than none.
+
 ### Step 2: Search existing design-system knowledge
 
 Call `mcp__specbrain__search_learnings` with a query describing the demand's UI (the kind of screen/component involved). Results are compact previews (id + short excerpt) — fetch the full content of anything relevant with `mcp__specbrain__get_learning` before using it. Use whatever comes back as your starting point — don't re-derive from scratch what's already known.
@@ -83,6 +85,7 @@ Tell the user the UI design has been saved and that `specbrain-engineering` is t
 ## Checklist
 
 - [ ] Resolved the project, found the context artifact, confirmed `requires_ui_design` is true
+- [ ] Loaded `get_directives(stage="design")` and followed every returned instruction; reported any `dropped_count`
 - [ ] Searched existing design-system learnings before reading code or asking
 - [ ] Read the project's actual code for design-system evidence before asking the user anything
 - [ ] Asked only about genuine gaps, one question at a time (or asked nothing if Steps 2-3 sufficed)

@@ -25,6 +25,8 @@ Capture and deepen understanding of a new demand before any engineering work sta
 
 Run `pwd` to get the current project path. Call `mcp__specbrain__get_or_create_project` with that path as `project_path`. This is idempotent — safe to call every time, at the start of every step that needs it.
 
+**Directives for this stage.** Immediately after resolving the project, call `mcp__specbrain__get_directives` with `stage="discovery"` (and `artifact_id` once this demand's context artifact exists, from Step 6). Every returned `instruction` is a steering rule this organization approved for this exact stage — follow each one verbatim for the rest of this skill, on top of everything below. Directives are retrieved by stage, not by similarity, so they apply whether or not they resemble the demand. If `dropped_count` is greater than zero, tell the user some directives didn't fit the context budget: silently truncated steering is worse than none.
+
 Then call `mcp__specbrain__list_artifacts` with `type="inquiry"`, `status="pending"`. These are questions raised in a previous run of this skill that couldn't be answered at the time (see Step 7) — they are never lost, only carried forward until resolved. If any exist, list them for the user (the question, which demand's context they belong to, and whether they were flagged as blocking) and ask if any now have an answer.
 
 For each one the user answers now: call `mcp__specbrain__save_artifact` with `type="context"`, `parent_id` = that inquiry's own `parent_id` (the original context artifact), and `content` describing the incremental update — this is how a demand's context "stays current" without an update-in-place tool, the same pattern `specbrain-discovery-slack` uses when a Slack reply lands. Then call `mcp__specbrain__update_artifact_status` on the inquiry with `status="answered"`. Evaluate the answer against the same reusable-learning criteria as Step 9 below — if it's a durable business rule, `save_learning` it now rather than waiting.
@@ -110,6 +112,7 @@ Tell the user the context has been saved and what's next: if `requires_ui_design
 ## Checklist
 
 - [ ] Resolved the project via `get_or_create_project`
+- [ ] Loaded `get_directives(stage="discovery")` and followed every returned instruction; reported any `dropped_count`
 - [ ] Checked for pending `inquiry` artifacts from a previous run, and folded in any answers the user now has
 - [ ] Searched `search_context` and `search_learnings` before asking anything
 - [ ] Offered Slack as an additional source, and if accepted, only searched the scope the user named

@@ -1,6 +1,6 @@
 ---
 name: specbrain-consolidate
-description: Use when the user confirms a demand actually works end to end (after specbrain-review moved its design to in_review) - marks the design finished, consolidates duplicate/overlapping learnings, computes task-kind/defect-rate indicators for the demand, reviews all recorded indicators for process insight, and saves what it learned back to the shared brain. Suggests specbrain-cleanup at the end, never runs it. Can be invoked by the user directly or by an agent. Embodies the Tech Lead persona in the Specbrain pipeline, closing out a cycle.
+description: Use when the user confirms a demand actually works end to end (after specbrain-review moved its design to in_review) - marks the design finished, consolidates duplicate/overlapping learnings, computes task-kind/defect-rate indicators for the demand, reviews all recorded indicators for process insight, and turns each actionable one into a directive proposed for the pipeline stage it should steer (pending human approval in Admin Web). Suggests specbrain-cleanup at the end, never runs it. Can be invoked by the user directly or by an agent. Embodies the Tech Lead persona in the Specbrain pipeline, closing out a cycle.
 ---
 
 # Specbrain Consolidate
@@ -21,6 +21,8 @@ Close out a demand once a human has actually confirmed it works — not just tha
 
 Run `pwd`, call `mcp__specbrain__get_or_create_project`. Call `mcp__specbrain__list_artifacts` with `type="design"`, `status="in_review"`. If none, tell the user nothing is currently awaiting confirmation and stop here. If more than one, ask which design this confirmation is for. Ask the user to confirm this demand genuinely works end to end — if they say no, stop and tell them `specbrain-refine` is how to report what's wrong instead. If they confirm: call `mcp__specbrain__update_artifact_status` on the design with `status="finished"`.
 
+**Directives for this stage.** Call `mcp__specbrain__get_directives` with `stage="consolidate"` and `artifact_id` = the closed design's `id`, and follow every returned `instruction` verbatim for the rest of this skill. If `dropped_count` is greater than zero, say so to the user.
+
 ### Step 2: Consolidate learnings
 
 1. Call `mcp__specbrain__list_learnings` for this project.
@@ -40,19 +42,38 @@ Call `mcp__specbrain__list_artifacts` with `type="task"`, keep only the ones who
 1. Call `mcp__specbrain__list_indicators` (no `key` filter) for this project.
 2. Group the results by `(key, source)` and look at how each has trended: pass rates, average attempts, token-savings trajectory, task done/failed/blocked totals, and now also `task_kind_distribution`/`demand_defect_rate` (this and prior demands), `review_miss` (recorded by `specbrain-refine` — a case where review said something was fine and it wasn't), and `refine_root_cause` (recorded by `specbrain-refine` — whether a past bug traced to a context gap, a design gap, or a pure implementation slip).
 3. Reason about what the numbers actually suggest, not just what they say — e.g. a gate that has never once failed might be too lenient rather than genuinely reflecting flawless work; a high `demand_defect_rate` on a design suggests its spec/discovery was thin going in; a `refine_root_cause` history dominated by `context_gap` suggests `specbrain-discovery` needs to dig deeper before handing off, not that implementation quality is the problem. Only surface something if it's a real, non-obvious observation — with too little data, say that plainly instead of inventing an insight.
+4. **An insight is only actionable if it names the stage it should steer.** For each observation, decide which pipeline stage would have to behave differently for it to stop recurring — `discovery`, `design`, `engineering.spec`, `engineering.review`, `engineering.tasks`, `orchestrate.implement`, `orchestrate.gate`, `review`, `refine`, `consolidate` or `quick`. An observation that maps to no stage is reported to the user and goes no further: it is not saved as a directive, and it is not saved as prose either. That is the rule that keeps this from silting up the way `process-insight` learnings did.
 
-### Step 5: Register what was learned
+### Step 5: Propose directives for what the indicators showed
 
-For each genuine insight from Step 4 (and any consolidation from Step 2 already covered that step), call `mcp__specbrain__save_learning` with a short `pattern` name and `tags` including `"consolidate"` (plus `"process-insight"` for Step 4's findings) so these are identifiable later and get picked up by `specbrain-discovery`'s `search_learnings` step on future demands.
+Process insight does **not** go to `save_learning`. A lesson about how the pipeline should behave, written as prose into the shared RAG, is retrieved by semantic similarity against a *demand's* text — which it never resembles, so it is never read again. Steering rules are retrieved by stage instead.
+
+For each actionable insight from Step 4, call `mcp__specbrain__save_directive` with:
+- `stage`: the stage decided in Step 4.3
+- `instruction`: **one imperative sentence**, written to be injected verbatim into that stage's prompt (e.g. "Before finishing discovery, ask explicitly which currency any monetary amount is denominated in.") — not a description of the problem, an instruction for what to do
+- `rationale`: what was observed and why this follows from it, for the human who will approve it
+- `origin_indicator_ids`: the ids of the indicator readings the insight came from
+- `scope`: only when the rule genuinely applies to a subset (`{"task_kinds": [...]}`, `{"risk_levels": [...]}`, `{"path_globs": [...]}`) — omit it otherwise
+- `project_scoped`: `false` when the rule should steer every project in the organization
+
+Every directive is saved as `proposed`. It does **not** influence anything until a human approves it in Specbrain Admin Web — say that plainly to the user rather than implying the fix is already in place.
+
+`mcp__specbrain__save_learning` is still the right tool in this skill for genuine domain knowledge (Step 2's consolidations, or a business rule learned while closing the demand). It is no longer used for process insight.
+
+### Step 5b: Offer to convert leftover `process-insight` learnings
+
+If `mcp__specbrain__list_learnings` shows learnings tagged `process-insight` from before directives existed, offer to convert them — **one at a time**, never in bulk and never automatically. For each one the user accepts: agree the stage and the one-sentence instruction with them, call `save_directive`, then `delete_learning` on the original. Anything the user skips is left exactly as it is.
 
 ### Step 6: Report
 
-Tell the user: that the design was marked `finished`; which learnings were consolidated (old → new, and how many were removed); this demand's task-kind breakdown and defect rate; and what process insights were saved, if any — or that indicators didn't show anything conclusive yet. Close by telling them `specbrain-cleanup` is available whenever they've merged the integration branch (via PR or manually) — do not run it, just mention it.
+Tell the user: that the design was marked `finished`; which learnings were consolidated (old → new, and how many were removed); this demand's task-kind breakdown and defect rate; and which directives were proposed, for which stages — stating explicitly that they are **pending approval in Admin Web and are not yet in effect**, and where to approve them. If the indicators didn't show anything conclusive yet, say that plainly instead of proposing a directive to have something to show. Close by telling them `specbrain-cleanup` is available whenever they've merged the integration branch (via PR or manually) — do not run it, just mention it.
 
 ## Checklist
 
 - [ ] Found the design awaiting confirmation (or told the user none exists) and confirmed with the user before marking it `finished`
 - [ ] Reviewed all learnings for the project; consolidated any real duplicates (new learning saved before old ones deleted)
 - [ ] Computed `task_kind_distribution` and (if applicable) `demand_defect_rate` for the closed design, spanning every task across all rounds
-- [ ] Reviewed all indicators grouped by `(key, source)`, including `review_miss`/`refine_root_cause` history; saved a genuine process insight only if one was actually there
-- [ ] Reported the closure, consolidations, this demand's indicators, and any insights — and pointed to `specbrain-cleanup` without running it
+- [ ] Reviewed all indicators grouped by `(key, source)`, including `review_miss`/`refine_root_cause` history; kept only observations that name a stage they should steer
+- [ ] Proposed those as directives via `save_directive` (one imperative sentence each, with `origin_indicator_ids`) — never as `process-insight` learnings
+- [ ] Offered to convert leftover `process-insight` learnings one at a time, if any existed
+- [ ] Reported the closure, consolidations, this demand's indicators, and every proposed directive — stating clearly that they're pending approval in Admin Web and not yet in effect — and pointed to `specbrain-cleanup` without running it

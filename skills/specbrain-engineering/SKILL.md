@@ -21,6 +21,8 @@ Turn a captured context into a technical spec, a solution design, and a set of i
 
 Run `pwd` to get the current project path. Call `mcp__specbrain__get_or_create_project`. Then call `mcp__specbrain__list_artifacts` with `type="context"` to find the most recent context artifact — this is the parent of everything produced in this skill. If none exists, tell the user to run `specbrain-discovery` first and stop here.
 
+**Directives for this skill's stages.** This skill spans three stages, and each one loads its own steering rules at the moment it starts: `mcp__specbrain__get_directives` with `stage="engineering.spec"` before drafting in Step 2, `stage="engineering.review"` before dispatching reviewers in Step 3, and `stage="engineering.tasks"` before breaking the design down in Step 5. Pass `artifact_id` = the context artifact's `id` on every call. Every returned `instruction` is a steering rule this organization approved for that exact stage — follow each one verbatim, on top of what this skill already says. Directives are retrieved by stage, not by similarity, so they apply whether or not they resemble the demand. If `dropped_count` is greater than zero, tell the user some directives didn't fit the context budget: silently truncated steering is worse than none.
+
 Also call `mcp__specbrain__list_artifacts` with `type="ui_design"`. If a UI design artifact exists for this project, it's additional input for Step 2. If none exists, proceed without it — not every demand involves UI, and `specbrain-design` may simply not have been run.
 
 Then call `mcp__specbrain__list_artifacts` with `type="inquiry"`, `status="pending"`, and keep only the ones whose `parent_id` matches the context artifact found above — these are open questions `specbrain-discovery` raised for this exact demand. If any have `metadata.blocking == true`: stop here, before drafting anything, and list them for the user. Offer two outcomes:
@@ -83,6 +85,7 @@ Always runs. Tell the user: how many rounds the multi-lens review took, which le
 
 - [ ] Resolved the project and found the parent context artifact
 - [ ] Checked for open blocking `inquiry` artifacts tied to that context, and either resolved or got an explicit override before proceeding
+- [ ] Loaded `get_directives` for `engineering.spec`, `engineering.review` and `engineering.tasks` at the start of each of those stages, and followed every returned instruction
 - [ ] Searched existing learnings/context before drafting the spec
 - [ ] Drafted the spec in English, in-session, without saving it yet
 - [ ] Ran the multi-lens review as a foreground, judgment-driven process (not a background loop or a pass/fail gate): picked relevant lenses deliberately, read every finding's grounding, decided with the user what was worth acting on, persisted a `gate_round` artifact per round

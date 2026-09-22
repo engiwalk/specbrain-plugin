@@ -21,6 +21,8 @@ Verify that what was actually built satisfies the acceptance criteria written du
 
 Run `pwd` to get the current project path. Call `mcp__specbrain__get_or_create_project`. Then call `mcp__specbrain__list_artifacts` with `type="task"` to find the tasks to validate. If none exist, tell the user to run `specbrain-engineering` first and stop here. If there are multiple tasks and it's not obvious which one(s) the user wants validated now, ask.
 
+**Directives for this stage.** Call `mcp__specbrain__get_directives` with `stage="review"`, `artifact_id` = the design the tasks belong to, and `task_kind` = the task's `metadata.task_kind` when validating a single task. Every returned `instruction` is a steering rule this organization approved for this exact stage — follow each one verbatim for the rest of this skill. Directives are retrieved by stage, not by similarity, so they apply whether or not they resemble the demand. If `dropped_count` is greater than zero, tell the user some directives didn't fit the context budget: silently truncated steering is worse than none.
+
 ### Step 2: Verify each acceptance criterion against real code/behavior
 
 For each task being validated, first call `mcp__specbrain__update_artifact_status` with that task's `id` and `status="in_review"` — this is what lets the Kanban board show which tasks are actively being validated right now. Then read `metadata.acceptance_criteria`. For each criterion:
@@ -75,6 +77,7 @@ Tell the user, per task: how many criteria passed out of how many, and for every
 ## Checklist
 
 - [ ] Resolved the project and identified the task(s) to validate
+- [ ] Loaded `get_directives(stage="review")` and followed every returned instruction; reported any `dropped_count`
 - [ ] Set each task's status to `in_review` before validating it
 - [ ] Checked every acceptance criterion of every task against real code/behavior, each with concrete evidence
 - [ ] Ran the multi-lens check against the real diff (relevant lenses only, judgment call), read every finding's grounding, decided with the user what was worth acting on

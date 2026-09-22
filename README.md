@@ -31,9 +31,19 @@ If you're not sure whether you're set up correctly, use the `specbrain-doctor` s
 | `specbrain-orchestrate` | Software Engineer | Parallel task execution with quality/security gates |
 | `specbrain-review` | QA | Verifies acceptance criteria against real code/behavior |
 | `specbrain-refine` | PO + Engineer | Reopens a demand to fix a bug or add an improvement |
-| `specbrain-consolidate` | Tech Lead | Closes a cycle: consolidates learnings, computes indicators |
+| `specbrain-consolidate` | Tech Lead | Closes a cycle: consolidates learnings, computes indicators, proposes directives |
 | `specbrain-cleanup` | Tech Lead | Removes merged worktrees/branches |
 | `specbrain-doctor` | — | Diagnoses the MCP connection |
+
+## Directives
+
+A **directive** is a steering rule for one pipeline stage: one imperative sentence, injected verbatim into that stage's prompt every time it runs.
+
+Directives are retrieved by **stage**, never by similarity search — that's the whole point. A lesson like "discovery keeps handing off without asking which currency an amount is in" has almost no semantic resemblance to the next demand's text, so as a searchable learning it would essentially never be read again. As a directive on `discovery`, it can't be missed.
+
+`specbrain-consolidate` proposes directives from what the indicators actually showed, with the readings they came from attached. Every directive is saved as `proposed` and **influences nothing until a human approves it** in the Directives screen of Specbrain Admin Web — a bad instruction would otherwise degrade every future run of that stage, diffusely. Pausing an approved directive takes effect on the next call, and editing an active directive's instruction sends it back for approval, because an edited rule is a new rule.
+
+Every skill loads the directives for its own stage right after resolving the project. `specbrain-orchestrate` loads them for `orchestrate.implement` and `orchestrate.gate` and passes them into its subagents' prompts.
 
 `specbrain-engineering` and `specbrain-review` also dispatch five specialized reviewer agents (`agents/specbrain-{business,security,architecture,sre,performance}-reviewer.md`) — each grounds its findings in the real target codebase and the shared memory before reporting, and never issues a pass/fail verdict; only a human (with the dispatching skill) decides what's worth acting on.
 

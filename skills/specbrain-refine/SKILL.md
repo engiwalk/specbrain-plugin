@@ -21,6 +21,8 @@ Re-enter an existing demand's cycle when review finds something wrong, instead o
 
 Run `pwd`, call `mcp__specbrain__get_or_create_project`. If the design is already known from the current conversation (e.g., this follows directly from a review discussion), use it. Otherwise call `mcp__specbrain__list_artifacts` with `type="design"`, `status="in_review"` or `"finished"`, and ask the user which one this report is about if more than one is a plausible match.
 
+**Directives for this stage.** Once the design is identified, call `mcp__specbrain__get_directives` with `stage="refine"` and `artifact_id` = that design's `id`. Every returned `instruction` is a steering rule this organization approved for this exact stage — follow each one verbatim for the rest of this skill. Directives are retrieved by stage, not by similarity, so they apply whether or not they resemble the demand. If `dropped_count` is greater than zero, tell the user some directives didn't fit the context budget: silently truncated steering is worse than none.
+
 ### Step 2: Reopen it
 
 Call `mcp__specbrain__update_artifact_status` on the design with `status="draft"`. Record whether it was `in_review` or `finished` beforehand — this distinction matters for Step 6.
@@ -59,6 +61,7 @@ Tell the user: what was reopened and why, whether context/design were revised or
 ## Checklist
 
 - [ ] Resolved which design is being reopened
+- [ ] Loaded `get_directives(stage="refine")` and followed every returned instruction; reported any `dropped_count`
 - [ ] Reopened it to `draft`, noting whether it was `in_review` or `finished` beforehand
 - [ ] Searched existing context/learnings before asking the user anything; asked clarifying questions one at a time
 - [ ] Classified `task_kind` (`bug`/`tech_debt`/`security`)
