@@ -15,7 +15,7 @@ Take the tasks produced by `specbrain-engineering` for one design and implement 
 
 **Roles:** the controller (this Claude Code session) is the only one that creates, merges, and removes worktrees — always sequentially, so two `git worktree`/`git merge` operations never race on the same `.git`. Subagents dispatched in parallel (via the `Agent` tool) only implement and review code inside a worktree they're handed already-created — they never create, merge, or remove worktrees themselves.
 
-**Announce at start:** "Estou usando a skill specbrain-orchestrate para implementar as tasks desta demanda em paralelo."
+**Announce at start:** tell the user you are using the `specbrain-orchestrate` skill to implement this demand's tasks in parallel — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 **Content language:** All free text persisted to the database via `save_artifact`/`save_learning` — artifact `content`, `learnings` `pattern`/`content`/`tags`, and any free-text field inside `metadata` (e.g. `acceptance_criteria`, `criteria_results[].evidence`) — must be written in English, regardless of the language the conversation is in. Proper nouns, code identifiers, and external system/API names stay exactly as given, untranslated. Everything said TO the user (questions, the announcement above, reports) stays in the user's language, unchanged.
 

@@ -9,7 +9,7 @@ description: Use when a user reports the Specbrain MCP connection isn't working,
 
 A quick diagnostic for the Specbrain MCP connection itself, not for a demand's content. Run this first whenever something *about the tooling* seems wrong - a tool call that never returns, a fresh project that hasn't been used yet, or before reporting a bug to Specbrain support.
 
-**Announce at start:** "Estou usando a skill specbrain-doctor para verificar a conexão com o Specbrain."
+**Announce at start:** tell the user you are using the `specbrain-doctor` skill to check the connection to Specbrain — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 ## Process
 

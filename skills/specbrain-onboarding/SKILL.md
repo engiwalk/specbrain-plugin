@@ -9,7 +9,7 @@ description: Use the first time a user in this project engages with Specbrain, w
 
 Specbrain's MCP connection is already configured by this plugin - no manual setup needed for the connection itself. The one real prerequisite is an **existing company/user registration**: the MCP server only issues access to Google accounts that have already registered a company through the Specbrain admin panel. This skill explains that, once, before the surprise of an unexpected sign-in failure.
 
-**Announce at start:** "Estou usando a skill specbrain-onboarding para explicar o que é preciso antes de usar o Specbrain."
+**Announce at start:** tell the user you are using the `specbrain-onboarding` skill to explain what is needed before using Specbrain — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 ## Process
 

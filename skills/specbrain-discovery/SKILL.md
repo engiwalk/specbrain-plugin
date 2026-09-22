@@ -13,7 +13,7 @@ Capture and deepen understanding of a new demand before any engineering work sta
 
 **Optional:** the `claude.ai Slack` MCP connector (tools prefixed `mcp__claude_ai_Slack__`), used only if the user opts in during Step 3. Unlike the `specbrain` server, this is never required to run the skill.
 
-**Announce at start:** "Estou usando a skill specbrain-discovery para aprofundar o contexto desta demanda."
+**Announce at start:** tell the user you are using the `specbrain-discovery` skill to deepen the context of this demand — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 **Content language:** All free text persisted to the database via `save_artifact`/`save_learning` — artifact `content`, `learnings` `pattern`/`content`/`tags`, and any free-text field inside `metadata` (e.g. `acceptance_criteria`, `criteria_results[].evidence`) — must be written in English, regardless of the language the conversation is in. Proper nouns, code identifiers, and external system/API names stay exactly as given, untranslated. Everything said TO the user (questions, the announcement above, reports) stays in the user's language, unchanged.
 

@@ -11,7 +11,7 @@ Learn a project's design system well enough to describe how a specific screen or
 
 **Requires:** the `specbrain` MCP server connected (tools prefixed `mcp__specbrain__`), and a context artifact already saved for this project (normally via `specbrain-discovery`) with `metadata.requires_ui_design == true`.
 
-**Announce at start:** "Estou usando a skill specbrain-design para aprender o design system e desenhar esta tela."
+**Announce at start:** tell the user you are using the `specbrain-design` skill to learn the design system and design this screen — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 **Content language:** All free text persisted to the database via `save_artifact`/`save_learning` — artifact `content`, `learnings` `pattern`/`content`/`tags`, and any free-text field inside `metadata` (e.g. `acceptance_criteria`, `criteria_results[].evidence`) — must be written in English, regardless of the language the conversation is in. Proper nouns, code identifiers, and external system/API names stay exactly as given, untranslated. Everything said TO the user (questions, the announcement above, reports) stays in the user's language, unchanged.
 

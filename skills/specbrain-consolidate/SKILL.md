@@ -11,7 +11,7 @@ Close out a demand once a human has actually confirmed it works — not just tha
 
 **Requires:** the `specbrain` MCP server connected (tools prefixed `mcp__specbrain__`).
 
-**Announce at start:** "Estou usando a skill specbrain-consolidate para encerrar esta demanda e consolidar o conhecimento."
+**Announce at start:** tell the user you are using the `specbrain-consolidate` skill to close out this demand and consolidate what was learned — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 **Content language:** same rule as every other Specbrain skill — everything persisted via `save_learning` is written in English; everything said to the user stays in their language.
 

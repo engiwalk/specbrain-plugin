@@ -11,7 +11,7 @@ Re-enter an existing demand's cycle when review finds something wrong, instead o
 
 **Requires:** the `specbrain` MCP server connected (tools prefixed `mcp__specbrain__`).
 
-**Announce at start:** "Estou usando a skill specbrain-refine para retomar esta demanda."
+**Announce at start:** tell the user you are using the `specbrain-refine` skill to reopen this demand — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 **Content language:** same rule as every other Specbrain skill — everything persisted via `save_artifact`/`save_learning` is written in English; everything said to the user (questions, this announcement, reports) stays in their language.
 

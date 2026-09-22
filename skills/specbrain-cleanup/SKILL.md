@@ -11,7 +11,7 @@ Remove the git worktrees and branches `specbrain-orchestrate` leaves behind, onc
 
 **Requires:** none beyond a local git checkout of the project — no `specbrain` MCP tools are needed for this skill.
 
-**Announce at start:** "Estou usando a skill specbrain-cleanup para remover worktrees e branches já mescladas."
+**Announce at start:** tell the user you are using the `specbrain-cleanup` skill to remove worktrees and branches that are already merged — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 **Safety principle:** only ever touch a worktree/branch that `git` itself confirms is already an ancestor of `<main-branch>` — that means its content already lives in `<main-branch>`'s history, so removing the worktree/branch destroys nothing. Never guess, never use `--force`, never touch anything outside the `specbrain-integration-*`/`specbrain-task-*` naming convention `specbrain-orchestrate` creates.
 

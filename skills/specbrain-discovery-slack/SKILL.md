@@ -11,7 +11,7 @@ Ask a specific person or channel a question over Slack on the user's behalf, exa
 
 **Requires:** the `specbrain` MCP server connected (tools prefixed `mcp__specbrain__`), same as `specbrain-discovery`. Also requires the `claude.ai Slack` MCP connector (tools prefixed `mcp__claude_ai_Slack__`) authenticated in the session — if it isn't, tell the user to run `mcp__claude_ai_Slack__authenticate` and complete it before proceeding.
 
-**Announce at start:** "Estou usando a skill specbrain-discovery-slack para conversar com alguém sobre esta demanda." (Mode A) or "Estou usando a skill specbrain-discovery-slack para checar se houve resposta." (Mode B).
+**Announce at start:** tell the user you are using the `specbrain-discovery-slack` skill — to ask someone about this demand (Mode A), or to check whether an answer has arrived (Mode B) — written **in the language the user is writing in**, not translated from this file. The skill name itself is never translated.
 
 **Content language:** same rule as `specbrain-discovery` — everything persisted via `save_artifact`/`save_learning` is written in English; everything said to the user or sent to Slack stays in the user's language.
 
