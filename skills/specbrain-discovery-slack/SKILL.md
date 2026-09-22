@@ -78,7 +78,7 @@ If there's more than one pending inquiry, dispatch one sub-agent per inquiry to 
 
 **Reply landed:**
 - Paraphrase the answer, with attribution (e.g. "Fulano confirmed via Slack: the refund window is 14 days for digital goods").
-- Call `mcp__specbrain__save_artifact` with `type="context"`, `parent_id` = the original demand context artifact id, and `content` describing the incremental update — this is how the demand's context artifact "stays current" without an update-in-place tool; future `search_context` calls surface both the original and this revision.
+- Call `mcp__specbrain__update_artifact` on the original demand context artifact with the full corrected `content` and a `reason` naming the question the reply answered. The previous text is kept as a revision, so the demand's context stays one artifact that reads as current truth — rather than a chain where `search_context` can return the version written before the answer arrived.
 - If it's a reusable business rule (same criteria `specbrain-discovery` Step 8 uses), also call `mcp__specbrain__save_learning`.
 - Call `mcp__specbrain__update_artifact_status` on the `slack_inquiry` artifact with `status="answered"`.
 - Tell the user what came back and that the demand's context was updated.

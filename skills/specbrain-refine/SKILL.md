@@ -40,7 +40,7 @@ From what was reported, decide: `bug` (an actual behavioral defect), `tech_debt`
 ### Step 5: Decide whether context/design were actually wrong
 
 This is the key judgment call — don't default to either answer:
-- If the investigation shows the original `context` or `design` reflected a genuine misunderstanding (something was missed, assumed incorrectly, or described in a way that doesn't match reality) — this is different from "the code just didn't match a design that was actually fine." In this case: save a new `context` and/or `design` artifact revision via `mcp__specbrain__save_artifact`, with `parent_id` pointing at the artifact being corrected. This is how "updating the existing one" works in this system — there's no in-place edit; a chained revision reads as the same evolving artifact, exactly like the spec revisions `specbrain-engineering`'s gate already produces. The original is left as-is; the chain itself is what supersedes it.
+- If the investigation shows the original `context` or `design` reflected a genuine misunderstanding (something was missed, assumed incorrectly, or described in a way that doesn't match reality) — this is different from "the code just didn't match a design that was actually fine." In this case: correct the artifact **in place** with `mcp__specbrain__update_artifact`, passing the corrected `content` and a `reason` saying what was actually wrong. The previous text is kept as a revision, so nothing is lost, and `search_context` stops returning the outdated version. Do **not** save a new artifact describing the correction: a chain leaves the wrong statement retrievable with the same authority as the right one, which is exactly how a future demand inherits the mistake.
 - If context and design were fine and this is a pure implementation slip, skip this — new tasks in Step 6 attach to the existing design unchanged.
 - Either way, call `mcp__specbrain__record_indicator` with `key="refine_root_cause"`, `value={"cause": "context_gap"|"design_gap"|"implementation_slip", "task_kind": "<from Step 4>"}`, `source="refine"`.
 
@@ -77,7 +77,7 @@ Tell the user: what was reopened and why, whether context/design were revised or
 - [ ] Reopened it to `draft`, noting whether it was `in_review` or `finished` beforehand
 - [ ] Searched existing context/learnings before asking the user anything; asked clarifying questions one at a time
 - [ ] Classified `task_kind` (`bug`/`tech_debt`/`security`)
-- [ ] Judged whether context/design were genuinely wrong (not just the code) — revised via a new chained artifact only if so; recorded `refine_root_cause` either way
+- [ ] Judged whether context/design were genuinely wrong (not just the code) — corrected in place via `update_artifact` with a reason only if so; recorded `refine_root_cause` either way
 - [ ] Asked explicitly whether a learning or directive contributed to the defect, and disputed/superseded it if so (or stated plainly that the memory wasn't involved)
 - [ ] Recorded `review_miss` when a `bug` task reopens a design that had already been `in_review` or `finished`
 - [ ] Created new tasks with `task_kind` set, parented under the current design
