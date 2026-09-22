@@ -25,9 +25,13 @@ Run `pwd`, call `mcp__specbrain__get_or_create_project`. If the design is alread
 
 **Directives for this stage.** Once the design is identified, call `mcp__specbrain__get_directives` with `stage="refine"` and `artifact_id` = that design's `id`. Every returned `instruction` is a steering rule this organization approved for this exact stage — follow each one verbatim for the rest of this skill. Directives are retrieved by stage, not by similarity, so they apply whether or not they resemble the demand. If `dropped_count` is greater than zero, tell the user some directives didn't fit the context budget: silently truncated steering is worse than none.
 
-### Step 2: Reopen it
+### Step 2: Record the defect, then reopen
 
-Call `mcp__specbrain__update_artifact_status` on the design with `status="draft"`. Record whether it was `in_review` or `finished` beforehand — this distinction matters for Step 6.
+If what's being reported is a **defect** — something that was built and turned out wrong, as opposed to an improvement to something that works — call `mcp__specbrain__report_defect` first, with `design_id` = the design from Step 1, `origin` (`production` when it reached users, `ci`/`qa`/`review` when something caught it first), `severity`, and whatever `evidence` exists (a Sentry id, a log line, a reproduction). Do this before investigating, while what's known is still what was actually reported.
+
+Recording it is not bookkeeping: the link to the design is what lets anyone ask later what that demand had in context when the mistake was made, and it is the only input to `escaped_defect_rate`. A `tech_debt` improvement is not a defect — don't record one to look thorough.
+
+Then call `mcp__specbrain__update_artifact_status` on the design with `status="draft"`. Record whether it was `in_review` or `finished` beforehand — this distinction matters for Step 6.
 
 ### Step 3: Understand what's actually wrong
 
@@ -46,9 +50,11 @@ This is the key judgment call — don't default to either answer:
 
 ### Step 5b: Decide whether the shared memory itself was wrong
 
-**Mandatory, not optional.** Ask explicitly: did a learning contribute to this defect? Call `mcp__specbrain__search_learnings` on the topic of what went wrong, and look at what the demand actually had in context — `record_learning_usage` rows from the original cycle are exactly what make this answerable.
+**Mandatory, not optional.** Ask explicitly: did a learning contribute to this defect?
 
-- If a learning asserted something that turned out not to be true: call `mcp__specbrain__dispute_learning` with a one-sentence `reason` describing what actually happened. It stops being retrieved immediately and lands in Admin Web's review queue. If the corrected statement is already clear, `resolve_learning_conflict` with `supersede` is better than leaving a hole.
+Start with `mcp__specbrain__get_demand_influences` for this design. It returns what the pipeline **actually used** while building this demand — the learnings it recorded using, and the directives injected into its stages. That is evidence. A fresh `search_learnings` tells you what would be retrieved *today*, which is a different question and a common way to blame the wrong statement; use it only to widen the search after reading the influences.
+
+- If a learning asserted something that turned out not to be true: call `mcp__specbrain__dispute_learning` with a one-sentence `reason` describing what actually happened, and pass `defect_id` from Step 2. It stops being retrieved immediately and lands in Admin Web's review queue. If the corrected statement is already clear, `resolve_learning_conflict` with `supersede` is better than leaving a hole.
 - If a **directive** steered the work into this defect, say so to the user and point them at Admin Web to pause it — no skill can pause a directive.
 - If the memory had nothing to do with it, say that plainly and move on. Disputing something to look thorough is worse than disputing nothing: it removes true knowledge from retrieval.
 
@@ -78,7 +84,8 @@ Tell the user: what was reopened and why, whether context/design were revised or
 - [ ] Searched existing context/learnings before asking the user anything; asked clarifying questions one at a time
 - [ ] Classified `task_kind` (`bug`/`tech_debt`/`security`)
 - [ ] Judged whether context/design were genuinely wrong (not just the code) — corrected in place via `update_artifact` with a reason only if so; recorded `refine_root_cause` either way
-- [ ] Asked explicitly whether a learning or directive contributed to the defect, and disputed/superseded it if so (or stated plainly that the memory wasn't involved)
+- [ ] Recorded the defect via `report_defect` (linked to the design, with origin and severity) before investigating, when what was reported really was a defect
+- [ ] Read `get_demand_influences` before judging whether the memory contributed — evidence of what was used, not a fresh search — and disputed/superseded if so (or stated plainly that the memory wasn't involved)
 - [ ] Recorded `review_miss` when a `bug` task reopens a design that had already been `in_review` or `finished`
 - [ ] Created new tasks with `task_kind` set, parented under the current design
 - [ ] Saved any new learnings from the investigation (or explicitly confirmed there were none)
