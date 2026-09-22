@@ -58,7 +58,9 @@ If they accept:
 
 For each task validated, call `mcp__specbrain__save_artifact` with `project_path` from Step 1, `type="review_report"`, `parent_id` set to that task's `id`, `content` summarizing the outcome, and `metadata={"criteria_results": [{"criterion": "...", "passed": true|false, "evidence": "..."}, ...]}` covering every criterion checked (Step 2, Step 3's actioned findings, and Step 4 if run).
 
-Then call `mcp__specbrain__update_artifact_status` for that same task with `status="done"` if every criterion passed, or `status="failed"` if at least one criterion failed — resolving the `in_review` set in Step 2.
+**Record what you ran, before resolving the status.** Call `mcp__specbrain__get_project_checks`; for a task that was implemented by hand (not through `specbrain-orchestrate`, which records its own), run the mandatory ones and call `mcp__specbrain__record_verification` with each command, its real exit code and, when non-zero, a short output excerpt. A task cannot reach `done` without a passing verification — the server refuses, and it is right to: "the criteria look satisfied when I read the code" is not the same claim as "the tests pass".
+
+Then call `mcp__specbrain__update_artifact_status` for that same task with `status="done"` if every criterion passed, or `status="failed"` if at least one criterion failed — resolving the `in_review` set in Step 2. If it comes back `{"refused": "verification_required"}`, report that to the user as a real finding rather than working around it: the criteria may read as satisfied while the project's own checks say otherwise, and that gap is exactly what this step exists to catch.
 
 ### Step 6: Check whether the design is now fully reviewed
 
@@ -87,6 +89,7 @@ Tell the user, per task: how many criteria passed out of how many, and for every
 - [ ] Ran the multi-lens check against the real diff (relevant lenses only, judgment call), read every finding's grounding, decided with the user what was worth acting on
 - [ ] Offered the optional browser verification when the demand involved UI, and never persisted any credentials used
 - [ ] Saved a `review_report` per task validated, covering acceptance criteria and any actioned multi-lens findings
+- [ ] Ran the project's mandatory checks for any hand-implemented task and recorded a verification from the real commands and exit codes
 - [ ] Resolved each task's status to `done` or `failed` based on its criteria results
 - [ ] For each design touched, checked whether every one of its tasks (across all rounds) is resolved, and if so moved it to `in_review`
 - [ ] Recorded `review_pass_rate` per task validated, and `review_panel_grounding_rate`/`review_panel_summary` for the multi-lens check
