@@ -70,7 +70,7 @@ For each task validated in Step 5, its `parent_id` is a `design` artifact. For e
 
 For each task validated, call `mcp__specbrain__record_indicator` with `project_path` from Step 1, `key="review_pass_rate"`, `value={"criteria_passed": <n>, "criteria_total": <m>}`, `source="review"`.
 
-For each lens dispatched in Step 3 for that task, also call `mcp__specbrain__record_indicator` with `key="review_panel_grounding_rate"`, `source="<lens name, e.g. business>"`, `value={"grounded": <n>, "ungrounded": <n>}` (counts among that lens's findings for this task). Once per task (not per lens): call `mcp__specbrain__record_indicator` with `key="review_panel_summary"`, `source="multi_lens_review_code"`, `value={"findings_total": <n>, "findings_actioned": <n>, "findings_dismissed": <n>}`. This is a distinct `source` from `specbrain-engineering`'s `multi_lens_review_spec` — they measure the same lenses at different stages (spec vs. real code) and should trend separately.
+For each lens dispatched in Step 3 for that task, also call `mcp__specbrain__record_indicator` with `key="review_panel_grounding_rate"`, `source="<lens name, e.g. business>"`, `value={"grounded": <n>, "ungrounded": <n>}` (counts among that lens's findings for this task). The task's own finding totals (`findings_total`/`findings_actioned`/`findings_dismissed`) go in the `review_report` artifact's `metadata`, not into an indicator — they describe one task, which is an artifact's job. `review_panel_summary` used to be recorded as an indicator and is retired; `record_indicator` refuses it. `review_panel_grounding_rate` stays an indicator because it measures the reviewers themselves across every task, which is exactly what calibration means.
 
 ### Step 8: Save new learnings
 
@@ -92,6 +92,6 @@ Tell the user, per task: how many criteria passed out of how many, and for every
 - [ ] Ran the project's mandatory checks for any hand-implemented task and recorded a verification from the real commands and exit codes
 - [ ] Resolved each task's status to `done` or `failed` based on its criteria results
 - [ ] For each design touched, checked whether every one of its tasks (across all rounds) is resolved, and if so moved it to `in_review`
-- [ ] Recorded `review_pass_rate` per task validated, and `review_panel_grounding_rate`/`review_panel_summary` for the multi-lens check
+- [ ] Recorded `review_pass_rate` per task validated and `review_panel_grounding_rate` per lens; kept the per-task finding totals in the `review_report` artifact rather than as an indicator
 - [ ] Saved any new learnings beyond what individual lenses already saved (or explicitly confirmed there were none)
 - [ ] Reported clear, specific pass/fail results to the user, not a vague summary

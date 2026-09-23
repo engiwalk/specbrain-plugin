@@ -46,7 +46,9 @@ From what was reported, decide: `bug` (an actual behavioral defect), `tech_debt`
 This is the key judgment call — don't default to either answer:
 - If the investigation shows the original `context` or `design` reflected a genuine misunderstanding (something was missed, assumed incorrectly, or described in a way that doesn't match reality) — this is different from "the code just didn't match a design that was actually fine." In this case: correct the artifact **in place** with `mcp__specbrain__update_artifact`, passing the corrected `content` and a `reason` saying what was actually wrong. The previous text is kept as a revision, so nothing is lost, and `search_context` stops returning the outdated version. Do **not** save a new artifact describing the correction: a chain leaves the wrong statement retrievable with the same authority as the right one, which is exactly how a future demand inherits the mistake.
 - If context and design were fine and this is a pure implementation slip, skip this — new tasks in Step 6 attach to the existing design unchanged.
-- Either way, call `mcp__specbrain__record_indicator` with `key="refine_root_cause"`, `value={"cause": "context_gap"|"design_gap"|"implementation_slip", "task_kind": "<from Step 4>"}`, `source="refine"`.
+- Either way, call `mcp__specbrain__record_indicator` with `key="refine_root_cause"`, `value={"cause": "context_gap"|"design_gap"|"implementation_slip", "task_kind": "<from Step 4>"}`, `source="refine"`, `metadata={"design_id": "<id>", "defect_id": "<id from Step 2, when there was one>"}`.
+
+  Record this even when the answer is unflattering, and especially then. It is the most directly actionable reading the system produces: each cause names the stage that let the defect through — `context_gap` → `discovery`, `design_gap` → `engineering.spec`, `implementation_slip` → `orchestrate.implement` — and `specbrain-consolidate` turns a recurring one into a directive on that stage. Choosing the comfortable cause quietly steers the wrong part of the pipeline.
 
 ### Step 5b: Decide whether the shared memory itself was wrong
 
