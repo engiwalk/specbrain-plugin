@@ -54,6 +54,15 @@ Ask the user one question: do they want Slack searched for context on this deman
   3. Using whichever Slack tools the connector exposes, search within that scope for messages/threads relevant to the demand.
   4. Treat relevant findings the same way Step 2's RAG results are treated: summarize what was found back to the user, and use it to answer clarifying questions in Step 4 instead of re-asking what's already known. Remember the paraphrase-only rule above when this later reaches `save_artifact`/`save_learning`.
 
+### Step 3b: Classify the risk, and take the fast lane when it's small
+
+Before the interview, call `mcp__specbrain__classify_demand_risk`, answering every signal. Determine what you can from the repository (does this touch a migration? an auth middleware? a public route?) and ask the user only about what you genuinely cannot. The tool refuses a missing answer rather than assuming one — an unanswered question is not a "no".
+
+- **`low`** — say so to the user in one line, name what you're skipping and why, and invoke `specbrain-quick` for the rest. Don't ask permission first; tell them what you did and that they can ask for the full path instead. A one-line copy change should not cost a clarifying interview, and if it does, people stop using this at all.
+- **`medium` or `high`** — continue with Step 4. Mention which signals triggered it; the user often knows immediately whether an answer was wrong.
+
+Carry the whole risk object forward to Step 6's `metadata`, not just its level: the signals are what later make it possible to check whether demands classified low are quietly leaking defects.
+
 ### Step 4: Ask clarifying questions, one at a time
 
 Following the same discipline as `superpowers:brainstorming`: ask ONE question per message, prefer multiple-choice when possible, until you have enough clarity about:
@@ -76,7 +85,7 @@ Call `mcp__specbrain__save_artifact` with:
 - `project_path`: from Step 1
 - `type`: `"context"`
 - `content`: a clear, complete written summary of the demand, incorporating everything learned in Steps 2-5
-- `metadata`: `{"requires_ui_design": true}` or `{"requires_ui_design": false}`
+- `metadata`: `{"requires_ui_design": true|false, "risk": <the full object returned in Step 3b>}`
 
 ### Step 7: Persist any open questions
 
@@ -119,6 +128,7 @@ Tell the user the context has been saved and what's next: if `requires_ui_design
 - [ ] Searched `search_context` and `search_learnings` before asking anything
 - [ ] Offered Slack as an additional source, and if accepted, only searched the scope the user named
 - [ ] Asked clarifying questions one at a time until confident; for anything left unanswered, decided with the user whether it's blocking
+- [ ] Classified the risk from answered signals and routed a `low` demand into `specbrain-quick` instead of interviewing it
 - [ ] Flagged whether the demand needs UI design
 - [ ] Saved the context via `save_artifact`
 - [ ] Persisted any open questions as `inquiry` artifacts, with the right `blocking` flag

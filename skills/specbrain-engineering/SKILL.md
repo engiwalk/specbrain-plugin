@@ -25,6 +25,8 @@ Run `pwd` to get the current project path. Call `mcp__specbrain__get_or_create_p
 
 **Directives for this skill's stages.** This skill spans three stages, and each one loads its own steering rules at the moment it starts: `mcp__specbrain__get_directives` with `stage="engineering.spec"` before drafting in Step 2, `stage="engineering.review"` before dispatching reviewers in Step 3, and `stage="engineering.tasks"` before breaking the design down in Step 5. Pass `artifact_id` = the context artifact's `id` on every call. Every returned `instruction` is a steering rule this organization approved for that exact stage — follow each one verbatim, on top of what this skill already says. Directives are retrieved by stage, not by similarity, so they apply whether or not they resemble the demand. If `dropped_count` is greater than zero, tell the user some directives didn't fit the context budget: silently truncated steering is worse than none.
 
+**Check the demand's risk before doing any of this.** Read `metadata.risk` on the context artifact. If it says `low`, this skill is more machinery than the demand needs: say so in one line and invoke `specbrain-quick` instead. If the context has no `risk` at all (it predates classification, or came from an older run), call `mcp__specbrain__classify_demand_risk` now and correct the context with `mcp__specbrain__update_artifact` — a demand with no recorded risk can't be routed, and the server's lineage rule can't protect it either.
+
 Also call `mcp__specbrain__list_artifacts` with `type="ui_design"`. If a UI design artifact exists for this project, it's additional input for Step 2. If none exists, proceed without it — not every demand involves UI, and `specbrain-design` may simply not have been run.
 
 Then call `mcp__specbrain__list_artifacts` with `type="inquiry"`, `status="pending"`, and keep only the ones whose `parent_id` matches the context artifact found above — these are open questions `specbrain-discovery` raised for this exact demand. If any have `metadata.blocking == true`: stop here, before drafting anything, and list them for the user. Offer two outcomes:
@@ -86,6 +88,7 @@ Always runs. Tell the user: how many rounds the multi-lens review took, which le
 ## Checklist
 
 - [ ] Resolved the project and found the parent context artifact
+- [ ] Checked the demand's recorded risk (classifying it if missing), and handed a `low` one to `specbrain-quick` instead of specifying it
 - [ ] Checked for open blocking `inquiry` artifacts tied to that context, and either resolved or got an explicit override before proceeding
 - [ ] Loaded `get_directives` for `engineering.spec`, `engineering.review` and `engineering.tasks` at the start of each of those stages, and followed every returned instruction
 - [ ] Searched existing learnings/context before drafting the spec

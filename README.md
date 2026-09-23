@@ -25,6 +25,7 @@ If you're not sure whether you're set up correctly, use the `specbrain-doctor` s
 |---|---|---|
 | `specbrain-onboarding` | — | First-time setup guidance |
 | `specbrain-discovery` | Product Owner | Gathers context for a new demand, searches shared memory first |
+| `specbrain-quick` | — | The fast lane for a small, low-risk change: classify, one task, real checks |
 | `specbrain-discovery-slack` | Product Owner | Asks a stakeholder over Slack when only they know the answer |
 | `specbrain-engineering` | Software Engineer | Spec → multi-lens review → design → tasks |
 | `specbrain-design` | Designer | Learns the project's design system, produces UI designs |
@@ -44,6 +45,16 @@ Directives are retrieved by **stage**, never by similarity search — that's the
 `specbrain-consolidate` proposes directives from what the indicators actually showed, with the readings they came from attached. Every directive is saved as `proposed` and **influences nothing until a human approves it** in the Directives screen of Specbrain Admin Web — a bad instruction would otherwise degrade every future run of that stage, diffusely. Pausing an approved directive takes effect on the next call, and editing an active directive's instruction sends it back for approval, because an edited rule is a new rule.
 
 Every skill loads the directives for its own stage right after resolving the project. `specbrain-orchestrate` loads them for `orchestrate.implement` and `orchestrate.gate` and passes them into its subagents' prompts.
+
+## Ceremony proportional to risk
+
+Every demand is classified before anything else happens, from closed questions rather than a judgment call: does it touch auth, money, PII, a migration, or a public API; does it cross services; is it reversible. Every question must be answered — the tool refuses a missing one, because an unanswered question is not a "no".
+
+**Low** takes the fast lane (`specbrain-quick`): context, one task, done — no interview, no spec, no multi-lens review, no orchestration. **Medium and high** go through the full pipeline, and for high the server refuses any task that doesn't descend from a spec and a design. The fast lane exists so small work stops paying for ceremony it doesn't need, not as a way around ceremony a demand did need, so that rule lives in the server rather than in a prompt.
+
+What the fast lane never skips is verification: a small change still has to pass the project's mandatory checks before its task can be marked done.
+
+The reason this matters more than it looks: when a one-line copy fix costs the same ceremony as a payment-flow rewrite, people route around the tool for everyday work — and then the shared memory only ever sees the big demands, which is exactly when the habit fails to form.
 
 ## Learnings and how much they can be trusted
 
